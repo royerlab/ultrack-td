@@ -12,9 +12,9 @@ NB_MODULE(ultrack_td_ext, m) {
     m.def("inspect", inspect, "a"_a);
 
     nb::class_<Segment>(m, "Segment")
-    .def(nb::init<nb::ndarray<bool>, nb::ndarray<int>, int, int, int>())
-    .def_ro("mask", &Segment::mask)
-    .def_ro("bbox", &Segment::bbox)
+    .def(nb::init<nb::ndarray<nb::numpy, bool>, nb::ndarray<nb::numpy, int>, int, int, int>())
+    .def_prop_ro("mask", [](const Segment &s) -> nb::ndarray<nb::numpy, bool> { return s.mask; }, nb::rv_policy::reference)
+    .def_prop_ro("bbox", [](const Segment &s) -> nb::ndarray<nb::numpy, int> { return s.bbox; }, nb::rv_policy::reference)
     .def_ro("num_pixels", &Segment::num_pixels)
     .def_ro("z", &Segment::z)
     .def_ro("y", &Segment::y)

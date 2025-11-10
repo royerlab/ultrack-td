@@ -10,8 +10,8 @@ using namespace nb::literals;
 void inspect(const nb::ndarray<>& a);
 
 struct Segment {
-    nb::ndarray<bool> mask;
-    nb::ndarray<int> bbox;
+    nb::ndarray<nb::numpy, bool> mask;
+    nb::ndarray<nb::numpy, int> bbox;
     int num_pixels;
     int z;
     int y;
@@ -45,15 +45,30 @@ void compute_connected_components(
         -1, 0, 0,
     };
 
+    int min_z = depth - 1;
+    int min_y = height - 1;
+    int min_x = width - 1;
+    int max_z = 0;
+    int max_y = 0;
+    int max_x = 0;
+
     while (!queue.empty())
     {
         int idx = queue.back();
         queue.pop_back();
         seen_data[idx] = true;
         visited.push_back(idx);
+
         int cur_z = idx / (height * width);
         int cur_y = (idx % (height * width)) / width;
         int cur_x = idx % width;
+
+        min_z = std::min(min_z, cur_z);
+        min_y = std::min(min_y, cur_y);
+        min_x = std::min(min_x, cur_x);
+        max_z = std::max(max_z, cur_z);
+        max_y = std::max(max_y, cur_y);
+        max_x = std::max(max_x, cur_x);
         for (int i = 0; i < 6; i++) {
             int nz = cur_z + offsets[i * 3];
             int ny = cur_y + offsets[i * 3 + 1];
@@ -64,13 +79,50 @@ void compute_connected_components(
                 nx >= 0 && nx < width
             ) {
                 int nidx = nz * height * width + ny * width + nx;
-                if (!seen_data[nidx]) {
+                if (fg_data[nidx] && !seen_data[nidx]) {
                     seen_data[nidx] = true;
                     queue.push_back(nidx);
                 }
             }
         }
     }
+
+    size_t mask_depth = max_z - min_z + 1;
+    size_t mask_height = max_y - min_y + 1;
+    size_t mask_width = max_x - min_x + 1;
+
+    bool *mask_data = new bool[mask_depth * mask_height * mask_width];
+    std::memset(mask_data, 0, mask_depth * mask_height * mask_width * sizeof(bool));
+    for (int idx : visited) {
+        int z = idx / (height * width) - min_z;
+        int y = (idx % (height * width)) / width - min_y;
+        int x = idx % width - min_x;
+        mask_data[z * mask_height * mask_width + y * mask_width + x] = true;
+    }
+
+    size_t shape[3] = {mask_depth, mask_height, mask_width};
+    nb::capsule mask_owner(mask_data, [](void *p) noexcept {
+        delete[] (bool *) p;
+    });
+    auto mask = nb::ndarray<nb::numpy, bool>(mask_data, 3, shape, mask_owner);
+
+    int *bbox_data = new int[6]{min_z, min_y, min_x, max_z, max_y, max_x};
+    size_t bbox_shape[1] = {6};
+    nb::capsule bbox_owner(bbox_data, [](void *p) noexcept {
+        delete[] (int *) p;
+    });
+    auto bbox = nb::ndarray<nb::numpy, int>(bbox_data, 1, bbox_shape, bbox_owner);
+
+    segments.push_back(
+        Segment{
+            .mask = mask,
+            .bbox = bbox,
+            .num_pixels = static_cast<int>(visited.size()),
+            .z = min_z,
+            .y = min_y,
+            .x = min_x,
+        }
+    );
 }
 
 
@@ -111,5 +163,6 @@ std::vector<Segment> compute_segmentation_hypotheses(
         }
     }
 
+    delete[] seen_data;
     return segments;
 }
