@@ -53,6 +53,7 @@ nanobind_add_module(
 
   # Source code goes here
   src/ultrack_td_ext.cpp
+  src/cpp/ultrack.cc
 )
 
 # Install directive for scikit-build-core
