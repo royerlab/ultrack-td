@@ -1,1 +1,1 @@
-from .ultrack_td_ext import inspect, compute_segmentation_hypotheses, __doc__
+from .ultrack_td_ext import inspect, compute_segmentation_hypotheses, Segment, __doc__
