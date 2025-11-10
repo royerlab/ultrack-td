@@ -1,7 +1,10 @@
 #include <vector>
+#include <algorithm>
 #include <cstring>
+#include <numeric>
 #include <nanobind/ndarray.h>
 #include <nanobind/nanobind.h>
+#include "union_find.h"
 
 namespace nb = nanobind;
 
@@ -15,11 +18,11 @@ struct Segment {
     int y;
     int x;
 
-    static Segment from_visited(
+    static Segment from_visited_and_bbox(
         const std::vector<int>& visited,
         int min_z, int min_y, int min_x,
         int max_z, int max_y, int max_x,
-        int height, int width
+        int depth, int height, int width
     ) {
         size_t mask_depth = max_z - min_z + 1;
         size_t mask_height = max_y - min_y + 1;
@@ -56,7 +59,88 @@ struct Segment {
             .x = min_x,
         };
     }
+
+    static Segment from_visited(
+        const std::vector<int> &visited,
+        int depth, int height, int width
+    ) {
+        int min_z = depth - 1;
+        int min_y = height - 1;
+        int min_x = width - 1;
+        int max_z = 0;
+        int max_y = 0;
+        int max_x = 0;
+        for (int idx : visited) {
+            int z = idx / (height * width);
+            int y = (idx % (height * width)) / width;
+            int x = idx % width;
+            min_z = std::min(min_z, z);
+            min_y = std::min(min_y, y);
+            min_x = std::min(min_x, x);
+            max_z = std::max(max_z, z);
+            max_y = std::max(max_y, y);
+            max_x = std::max(max_x, x);
+        }
+        return Segment::from_visited_and_bbox(
+            visited, min_z, min_y, min_x,
+            max_z, max_y, max_x,
+            depth, height, width
+        );
+    }
 };
+
+
+std::vector<size_t> argsort(const std::vector<float> &array)
+{
+    std::vector<size_t> indices(array.size());
+    std::iota(indices.begin(), indices.end(), 0);
+    std::sort(indices.begin(), indices.end(),
+              [&array](int left, int right) -> bool {
+                  return array[left] < array[right];
+              });
+
+    return indices;
+}
+
+
+int hierarchical_watershed(
+    std::vector<Segment> &segments,
+    const std::vector<int> &edges,
+    const std::vector<float> &weights,
+    int min_num_pixels,
+    int max_num_pixels,
+    float min_frontier,
+    int depth,
+    int height,
+    int width
+) {
+    std::vector<size_t> sorted_indices = argsort(weights);
+
+    int num_segments = 0;
+    UnionFind uf(edges);
+
+    for (size_t i = 0; i < sorted_indices.size(); i++)
+    {
+        int idx = sorted_indices[i];
+        int u = edges[idx * 2];
+        int v = edges[idx * 2 + 1];
+        bool is_new = uf.unite(u, v);
+        if (is_new && weights[idx] > min_frontier)
+        {
+            int size = uf.get_size(u);
+            if (size > min_num_pixels && size < max_num_pixels)
+            {
+                segments.push_back(
+                    Segment::from_visited(
+                        uf.get_component(u), depth, height, width
+                    )
+                );
+                num_segments++;
+            }
+        }
+    }
+    return num_segments;
+}
 
 
 template <typename T>
@@ -75,6 +159,9 @@ void compute_connected_components(
 ) {
     std::vector<int> queue = {cur_idx};
     std::vector<int> visited;
+
+    std::vector<int> edges;
+    std::vector<float> weights;
 
     int offsets[18] = {
         0, 0, 1,
@@ -122,17 +209,31 @@ void compute_connected_components(
                 if (fg_data[nidx] && !seen_data[nidx]) {
                     seen_data[nidx] = true;
                     queue.push_back(nidx);
+
+                    edges.push_back(idx);
+                    edges.push_back(nidx);
+
+                    float w = 0.5f * (ctr_data[idx] + ctr_data[nidx]);
+                    weights.push_back(w);
                 }
             }
         }
     }
 
-    segments.push_back(
-        Segment::from_visited(
-            visited, min_z, min_y, min_x,
-            max_z, max_y, max_x, height, width
-        )
+    int num_segments = hierarchical_watershed(
+        segments, edges, weights,
+        min_num_pixels, max_num_pixels, min_frontier,
+        depth, height, width
     );
+
+    if (num_segments == 0) {
+        segments.push_back(
+            Segment::from_visited_and_bbox(
+                visited, min_z, min_y, min_x,
+                max_z, max_y, max_x, depth, height, width
+            )
+        );
+    }
 }
 
 
