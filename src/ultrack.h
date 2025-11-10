@@ -7,8 +7,6 @@ namespace nb = nanobind;
 
 using namespace nb::literals;
 
-void inspect(const nb::ndarray<>& a);
-
 struct Segment {
     nb::ndarray<nb::numpy, bool> mask;
     nb::ndarray<nb::numpy, int> bbox;

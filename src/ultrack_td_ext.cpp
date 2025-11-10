@@ -1,7 +1,7 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/vector.h>
-#include "cpp/ultrack.h"
+#include "ultrack.h"
 
 namespace nb = nanobind;
 
@@ -9,8 +9,6 @@ using namespace nb::literals;
 
 NB_MODULE(ultrack_td_ext, m) {
     m.doc() = "This is a \"hello world\" example with nanobind";
-    m.def("inspect", inspect, "a"_a);
-
     nb::class_<Segment>(m, "Segment")
     .def(nb::init<nb::ndarray<nb::numpy, bool>, nb::ndarray<nb::numpy, int>, int, int, int>())
     .def_prop_ro("mask", [](const Segment &s) -> nb::ndarray<nb::numpy, bool> { return s.mask; }, nb::rv_policy::reference)
