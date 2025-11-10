@@ -105,6 +105,7 @@ std::vector<size_t> argsort(const std::vector<float> &array)
 
 int hierarchical_watershed(
     std::vector<Segment> &segments,
+    const std::vector<int> &visited,
     const std::vector<int> &edges,
     const std::vector<float> &weights,
     int min_num_pixels,
@@ -117,7 +118,7 @@ int hierarchical_watershed(
     std::vector<size_t> sorted_indices = argsort(weights);
 
     int num_segments = 0;
-    UnionFind uf(edges);
+    UnionFind uf(visited);
 
     for (size_t i = 0; i < sorted_indices.size(); i++)
     {
@@ -221,7 +222,7 @@ void compute_connected_components(
     }
 
     int num_segments = hierarchical_watershed(
-        segments, edges, weights,
+        segments, visited, edges, weights,
         min_num_pixels, max_num_pixels, min_frontier,
         depth, height, width
     );
