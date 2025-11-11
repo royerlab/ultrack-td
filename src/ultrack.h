@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cstring>
 #include <numeric>
+#include <iostream>
 #include <nanobind/ndarray.h>
 #include <nanobind/nanobind.h>
 #include "union_find.h"
@@ -120,6 +121,11 @@ int hierarchical_watershed(
     std::unordered_map<int, int> global_to_local;
     int *local_to_global = new int[visited.size()];
 
+    int *num_minima = new int[2 * visited.size() - 1];
+    std::memset(num_minima, 0, (2 * visited.size() - 1) * sizeof(int));
+
+    float *mst_weights = new float[visited.size() - 1];
+
     for (int i = 0; i < visited.size(); i++) {
         global_to_local[visited[i]] = i;
         local_to_global[i] = visited[i];
@@ -136,28 +142,62 @@ int hierarchical_watershed(
         int idx = sorted_indices[i];
         int u = local_edges[idx * 2];
         int v = local_edges[idx * 2 + 1];
-        bool is_new = uf.unite(u, v);
-        if (is_new && weights[idx] > min_frontier)
-        {
-            int size = uf.get_size(u);
-            if (size > min_num_pixels && size < max_num_pixels)
-            {
-                std::vector<int> local_component = uf.get_component(u);
-                std::vector<int> component; component.reserve(local_component.size());
-                for (int local_idx : local_component)
-                    component.push_back(local_to_global[local_idx]);
 
-                segments.push_back(
-                    Segment::from_visited(
-                        component, depth, height, width
-                    )
-                );
-                num_segments++;
-            }
+        int root_u = uf.find(u);
+        int root_v = uf.find(v);
+        if (root_u == root_v) continue;
+
+        int tree_u = uf.tree.root[root_u];
+        int tree_v = uf.tree.root[root_v];
+
+        float parent_w = weights[idx];
+
+        if (tree_u >= visited.size() && num_minima[tree_u] == 0 && mst_weights[tree_u - visited.size()] < parent_w)
+            num_minima[tree_u] = 1;
+        else
+            num_minima[tree_u] = 0;
+    
+        if (tree_v >= visited.size() && num_minima[tree_v] == 0 && mst_weights[tree_v - visited.size()] < parent_w)
+            num_minima[tree_v] = 1;
+        else
+            num_minima[tree_v] = 0;
+
+        int new_node_id = uf.unite(u, v);
+
+        std::cout << tree_u << " " << tree_v << " " << new_node_id << std::endl;
+        
+        // edge weight in binary partition tree
+        int edge_idx = new_node_id - visited.size();
+        mst_weights[edge_idx] = parent_w;
+
+        // check if the new node is a watershed
+        num_minima[new_node_id] = num_minima[tree_u] + num_minima[tree_v];
+        if (num_minima[tree_u] == 0 || num_minima[tree_v] == 0)
+            continue;
+
+        if (parent_w < min_frontier) continue;
+
+        int size = uf.get_size(u);
+        if (size > min_num_pixels && size < max_num_pixels)
+        {
+            std::vector<int> local_component = uf.get_component(u);
+            std::vector<int> component; component.reserve(local_component.size());
+            for (int local_idx : local_component)
+                component.push_back(local_to_global[local_idx]);
+
+            segments.push_back(
+                Segment::from_visited(
+                    component, depth, height, width
+                )
+            );
+            num_segments++;
         }
     }
 
     delete[] local_to_global;
+    delete[] num_minima;
+    delete[] local_edges;
+    delete[] mst_weights;
 
     return num_segments;
 }

@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <algorithm>
+#include <iostream>
 
 struct Tree {
     std::vector<int> parent;
@@ -72,12 +73,12 @@ public:
      * Returns true if x and y were in different sets, false otherwise.
      * Time complexity: O(α(n)) amortized
      */
-    bool unite(int x, int y) {
+    int unite(int x, int y) {
         int root_x = find(x);
         int root_y = find(y);
 
         if (root_x == root_y) {
-            return false;  // already in the same set
+            return -1;  // already in the same set
         }
 
         // Union by rank: attach smaller tree under root of deeper tree
@@ -100,11 +101,18 @@ public:
         tree.parent.push_back(new_node);
         tree.root.push_back(new_node);
 
+        tree.root[tree_y] = new_node;
+        tree.root[tree_x] = new_node;
+        tree.root[root_y] = new_node;
+        tree.root[root_x] = new_node;
+
         tree.children.push_back(tree_y);
         tree.children.push_back(tree_x);
+        // std::cout << "tree.children: " << tree.children.size() << std::endl;
+        // std::cout << "new_node: " << new_node << std::endl;
 
         num_components--;
-        return true;
+        return new_node;
     }
 
     /**
