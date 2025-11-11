@@ -144,7 +144,6 @@ int hierarchical_watershed(
             {
                 std::vector<int> local_component = uf.get_component(u);
                 std::vector<int> component; component.reserve(local_component.size());
-
                 for (int local_idx : local_component)
                     component.push_back(local_to_global[local_idx]);
 

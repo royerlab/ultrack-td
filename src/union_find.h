@@ -4,6 +4,12 @@
 #include <vector>
 #include <algorithm>
 
+struct Tree {
+    std::vector<int> parent;
+    std::vector<int> root;
+    std::vector<int> children;
+};
+
 /**
  * Tarjan's Union-Find (Disjoint Set Union) data structure
  * with path compression and union by rank.
@@ -20,6 +26,8 @@ private:
     int num_components;          // number of disjoint sets
 
 public:
+    Tree tree;
+
     /**
      * Initialize empty union-find structure.
      */
@@ -35,8 +43,14 @@ public:
         rank.resize(n, 0);
         size.resize(n, 1);
 
+        tree.parent.reserve(2 * n - 1);
+        tree.root.reserve(2 * n - 1);
+        tree.children.reserve(2 * n);
+
         for (int i = 0; i < n; i++) {
             parent[i] = i;
+            tree.parent.push_back(i);
+            tree.root.push_back(i);
         }
     }
 
@@ -75,6 +89,19 @@ public:
         
         parent[root_x] = root_y;
         size[root_y] += size[root_x];
+
+        int new_node = tree.parent.size();
+        int tree_y = tree.root[root_y];
+        int tree_x = tree.root[root_x];
+
+        tree.parent[tree_y] = new_node;
+        tree.parent[tree_x] = new_node;
+
+        tree.parent.push_back(new_node);
+        tree.root.push_back(new_node);
+
+        tree.children.push_back(tree_y);
+        tree.children.push_back(tree_x);
 
         num_components--;
         return true;
