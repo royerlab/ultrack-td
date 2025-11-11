@@ -143,39 +143,49 @@ int hierarchical_watershed(
         int u = local_edges[idx * 2];
         int v = local_edges[idx * 2 + 1];
 
-        int root_u = uf.find(u);
-        int root_v = uf.find(v);
-        if (root_u == root_v) continue;
+        int c_u = uf.find(u);
+        int c_v = uf.find(v);
+        if (c_u == c_v) continue;
 
-        int tree_u = uf.tree.root[root_u];
-        int tree_v = uf.tree.root[root_v];
+        int c_new = uf.unite(c_u, c_v);
+
+        int left_child = uf.tree.children[2 * i];
+        int right_child = uf.tree.children[2 * i + 1];
 
         float parent_w = weights[idx];
+        bool is_ws = true;
 
-        if (tree_u >= visited.size() && num_minima[tree_u] == 0 && mst_weights[tree_u - visited.size()] < parent_w)
-            num_minima[tree_u] = 1;
-        else
-            num_minima[tree_u] = 0;
-    
-        if (tree_v >= visited.size() && num_minima[tree_v] == 0 && mst_weights[tree_v - visited.size()] < parent_w)
-            num_minima[tree_v] = 1;
-        else
-            num_minima[tree_v] = 0;
+        if (
+            left_child >= visited.size() &&
+            num_minima[left_child] == 0 &&
+            mst_weights[left_child - visited.size()] < parent_w
+        ) {
+            num_minima[left_child] = 1;
+        } else {
+            // num_minima[left_child] = 0;
+            is_ws = false;
+        }
 
-        int new_node_id = uf.unite(u, v);
+        if (
+            right_child >= visited.size() &&
+            num_minima[right_child] == 0 &&
+            mst_weights[right_child - visited.size()] < parent_w
+        ) {
+            num_minima[right_child] = 1;
+        } else {
+            // num_minima[right_child] = 0;
+            is_ws = false;
+        }
 
-        std::cout << tree_u << " " << tree_v << " " << new_node_id << std::endl;
+        num_minima[c_new] = num_minima[left_child] + num_minima[right_child];
+
+       // std::cout << tree_u << " " << tree_v << " " << new_node_id << std::endl;
+        std::cout << "num_minima: " << num_minima[c_new] << std::endl;
         
         // edge weight in binary partition tree
-        int edge_idx = new_node_id - visited.size();
-        mst_weights[edge_idx] = parent_w;
-
-        // check if the new node is a watershed
-        num_minima[new_node_id] = num_minima[tree_u] + num_minima[tree_v];
-        if (num_minima[tree_u] == 0 || num_minima[tree_v] == 0)
-            continue;
-
-        if (parent_w < min_frontier) continue;
+        mst_weights[i] = parent_w;
+        if (!is_ws) continue;
+        // if (parent_w < min_frontier) continue;
 
         int size = uf.get_size(u);
         if (size > min_num_pixels && size < max_num_pixels)

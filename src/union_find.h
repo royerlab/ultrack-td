@@ -6,7 +6,6 @@
 #include <iostream>
 
 struct Tree {
-    std::vector<int> parent;
     std::vector<int> root;
     std::vector<int> children;
 };
@@ -25,6 +24,7 @@ private:
     std::vector<int> rank;       // rank[i] = approximate depth of tree rooted at i
     std::vector<int> size;       // size[i] = size of component rooted at i
     int num_components;          // number of disjoint sets
+    int num_nodes;
 
 public:
     Tree tree;
@@ -44,15 +44,14 @@ public:
         rank.resize(n, 0);
         size.resize(n, 1);
 
-        tree.parent.reserve(2 * n - 1);
-        tree.root.reserve(2 * n - 1);
+        tree.root.resize(n);
         tree.children.reserve(2 * n);
 
         for (int i = 0; i < n; i++) {
             parent[i] = i;
-            tree.parent.push_back(i);
-            tree.root.push_back(i);
+            tree.root[i] = i;
         }
+        num_nodes = n;
     }
 
     /**
@@ -73,46 +72,28 @@ public:
      * Returns true if x and y were in different sets, false otherwise.
      * Time complexity: O(α(n)) amortized
      */
-    int unite(int x, int y) {
-        int root_x = find(x);
-        int root_y = find(y);
-
-        if (root_x == root_y) {
-            return -1;  // already in the same set
-        }
-
+    int unite(int c_x, int c_y) {
         // Union by rank: attach smaller tree under root of deeper tree
-        if (rank[root_x] > rank[root_y])
-            std::swap(root_x, root_y);
+        if (rank[c_x] > rank[c_y])
+            std::swap(c_x, c_y);
         
-        if (rank[root_x] == rank[root_y])
-            rank[root_y]++;
+        if (rank[c_x] == rank[c_y])
+            rank[c_y]++;
         
-        parent[root_x] = root_y;
-        size[root_y] += size[root_x];
+        parent[c_x] = c_y;
+        size[c_y] += size[c_x];
 
-        int new_node = tree.parent.size();
-        int tree_y = tree.root[root_y];
-        int tree_x = tree.root[root_x];
+        int t_x = tree.root[c_x];
+        int t_y = tree.root[c_y];
 
-        tree.parent[tree_y] = new_node;
-        tree.parent[tree_x] = new_node;
+        tree.root[c_y] = num_nodes;
+        tree.children.push_back(t_x);
+        tree.children.push_back(t_y);
 
-        tree.parent.push_back(new_node);
-        tree.root.push_back(new_node);
-
-        tree.root[tree_y] = new_node;
-        tree.root[tree_x] = new_node;
-        tree.root[root_y] = new_node;
-        tree.root[root_x] = new_node;
-
-        tree.children.push_back(tree_y);
-        tree.children.push_back(tree_x);
-        // std::cout << "tree.children: " << tree.children.size() << std::endl;
-        // std::cout << "new_node: " << new_node << std::endl;
-
+        num_nodes++;
         num_components--;
-        return new_node;
+
+        return num_nodes - 1;
     }
 
     /**
