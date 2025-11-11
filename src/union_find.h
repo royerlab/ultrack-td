@@ -2,28 +2,22 @@
 #define UNION_FIND_H
 
 #include <vector>
-#include <unordered_map>
 #include <algorithm>
 
 /**
  * Tarjan's Union-Find (Disjoint Set Union) data structure
  * with path compression and union by rank.
- * Supports arbitrary indices and tracks component sizes.
- *
- * Uses a hybrid approach: maps arbitrary indices to a dense array internally
- * for O(1) access while supporting sparse index sets.
+ * Works with indices in the range [0, N-1].
  *
  * Time complexity: O(α(n)) amortized per operation, where α is the
  * inverse Ackermann function (practically constant for all reasonable n).
  */
 class UnionFind {
 private:
-    std::vector<int> parent;              // parent[i] = parent of element i
-    std::vector<int> rank;                // rank[i] = approximate depth of tree rooted at i
-    std::vector<int> size;                // size[i] = size of component rooted at i
-    std::unordered_map<int, int> id_map;  // maps external index -> internal index
-    std::vector<int> reverse_map;          // maps internal index -> external index
-    int num_components;                    // number of disjoint sets
+    std::vector<int> parent;     // parent[i] = parent of element i
+    std::vector<int> rank;       // rank[i] = approximate depth of tree rooted at i
+    std::vector<int> size;       // size[i] = size of component rooted at i
+    int num_components;          // number of disjoint sets
 
 public:
     /**
@@ -32,62 +26,30 @@ public:
     UnionFind() : num_components(0) {}
 
     /**
-     * Initialize with a list of elements (e.g., visited array).
+     * Initialize with n elements in the range [0, n-1].
      * Each element starts in its own set with size 1.
      * Time complexity: O(n)
      */
-    explicit UnionFind(const std::vector<int>& elements) : num_components(0) {
-        int n = elements.size();
-        parent.reserve(n);
-        rank.reserve(n);
-        size.reserve(n);
-        reverse_map.reserve(n);
-        id_map.reserve(n);
+    explicit UnionFind(int n) : num_components(n) {
+        parent.resize(n);
+        rank.resize(n, 0);
+        size.resize(n, 1);
 
-        for (int elem : elements) {
-            add(elem);
+        for (int i = 0; i < n; i++) {
+            parent[i] = i;
         }
-    }
-
-    /**
-     * Add a new element to the structure.
-     * If element already exists, does nothing.
-     * Time complexity: O(1) average
-     */
-    void add(int x) {
-        if (id_map.find(x) == id_map.end()) {
-            int internal_id = parent.size();
-            id_map[x] = internal_id;
-            reverse_map.push_back(x);
-            parent.push_back(internal_id);
-            rank.push_back(0);
-            size.push_back(1);
-            num_components++;
-        }
-    }
-
-    /**
-     * Check if element exists.
-     * Time complexity: O(1) average
-     */
-    bool contains(int x) const {
-        return id_map.find(x) != id_map.end();
     }
 
     /**
      * Find the representative (root) of the set containing x.
      * Uses path compression for optimization.
-     * Automatically adds element if it doesn't exist.
      * Time complexity: O(α(n)) amortized
      */
     int find(int x) {
-        // Add element if it doesn't exist
-        if (id_map.find(x) == id_map.end()) {
-            add(x);
+        if (parent[x] != x) {
+            parent[x] = find(parent[x]);  // path compression
         }
-
-        int internal_id = id_map[x];
-        return find_internal(internal_id);
+        return parent[x];
     }
 
     /**
@@ -97,28 +59,22 @@ public:
      * Time complexity: O(α(n)) amortized
      */
     bool unite(int x, int y) {
-        int id_x = get_or_add_id(x);
-        int id_y = get_or_add_id(y);
-
-        int root_x = find_internal(id_x);
-        int root_y = find_internal(id_y);
+        int root_x = find(x);
+        int root_y = find(y);
 
         if (root_x == root_y) {
             return false;  // already in the same set
         }
 
         // Union by rank: attach smaller tree under root of deeper tree
-        if (rank[root_x] < rank[root_y]) {
-            parent[root_x] = root_y;
-            size[root_y] += size[root_x];
-        } else if (rank[root_x] > rank[root_y]) {
-            parent[root_y] = root_x;
-            size[root_x] += size[root_y];
-        } else {
-            parent[root_y] = root_x;
-            size[root_x] += size[root_y];
-            rank[root_x]++;
-        }
+        if (rank[root_x] > rank[root_y])
+            std::swap(root_x, root_y);
+        
+        if (rank[root_x] == rank[root_y])
+            rank[root_y]++;
+        
+        parent[root_x] = root_y;
+        size[root_y] += size[root_x];
 
         num_components--;
         return true;
@@ -129,10 +85,7 @@ public:
      * Time complexity: O(α(n)) amortized
      */
     bool connected(int x, int y) {
-        if (!contains(x) || !contains(y)) {
-            return false;
-        }
-        return find_internal(id_map[x]) == find_internal(id_map[y]);
+        return find(x) == find(y);
     }
 
     /**
@@ -140,10 +93,7 @@ public:
      * Time complexity: O(α(n)) amortized
      */
     int get_size(int x) {
-        if (!contains(x)) {
-            return 0;
-        }
-        int root = find_internal(id_map[x]);
+        int root = find(x);
         return size[root];
     }
 
@@ -174,7 +124,7 @@ public:
     }
 
     /**
-     * Get all root representatives (external indices).
+     * Get all root representatives.
      * Time complexity: O(n)
      */
     std::vector<int> get_roots() {
@@ -183,28 +133,24 @@ public:
 
         for (int i = 0; i < parent.size(); i++) {
             if (parent[i] == i) {
-                roots.push_back(reverse_map[i]);
+                roots.push_back(i);
             }
         }
         return roots;
     }
 
     /**
-     * Get all elements in the component containing x (external indices).
+     * Get all elements in the component containing x.
      * Time complexity: O(n)
      */
     std::vector<int> get_component(int x) {
-        if (!contains(x)) {
-            return {};
-        }
-
-        int root = find_internal(id_map[x]);
+        int root = find(x);
         std::vector<int> component;
         component.reserve(size[root]);
 
         for (int i = 0; i < parent.size(); i++) {
-            if (find_internal(i) == root) {
-                component.push_back(reverse_map[i]);
+            if (find(i) == root) {
+                component.push_back(i);
             }
         }
         return component;
@@ -218,34 +164,7 @@ public:
         parent.clear();
         rank.clear();
         size.clear();
-        id_map.clear();
-        reverse_map.clear();
         num_components = 0;
-    }
-
-private:
-    /**
-     * Internal find using dense array indices.
-     * Time complexity: O(α(n)) amortized
-     */
-    int find_internal(int internal_id) {
-        if (parent[internal_id] != internal_id) {
-            parent[internal_id] = find_internal(parent[internal_id]);  // path compression
-        }
-        return parent[internal_id];
-    }
-
-    /**
-     * Get internal ID for external index, adding if necessary.
-     * Time complexity: O(1) average
-     */
-    int get_or_add_id(int x) {
-        auto it = id_map.find(x);
-        if (it != id_map.end()) {
-            return it->second;
-        }
-        add(x);
-        return id_map[x];
     }
 };
 

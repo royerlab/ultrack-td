@@ -117,29 +117,49 @@ int hierarchical_watershed(
 ) {
     std::vector<size_t> sorted_indices = argsort(weights);
 
+    std::unordered_map<int, int> global_to_local;
+    int *local_to_global = new int[visited.size()];
+
+    for (int i = 0; i < visited.size(); i++) {
+        global_to_local[visited[i]] = i;
+        local_to_global[i] = visited[i];
+    }
+    int *local_edges = new int[edges.size()];
+    for (int i = 0; i < edges.size(); i++)
+        local_edges[i] = global_to_local[edges[i]];
+
     int num_segments = 0;
-    UnionFind uf(visited);
+    UnionFind uf(visited.size());
 
     for (size_t i = 0; i < sorted_indices.size(); i++)
     {
         int idx = sorted_indices[i];
-        int u = edges[idx * 2];
-        int v = edges[idx * 2 + 1];
+        int u = local_edges[idx * 2];
+        int v = local_edges[idx * 2 + 1];
         bool is_new = uf.unite(u, v);
         if (is_new && weights[idx] > min_frontier)
         {
             int size = uf.get_size(u);
             if (size > min_num_pixels && size < max_num_pixels)
             {
+                std::vector<int> local_component = uf.get_component(u);
+                std::vector<int> component; component.reserve(local_component.size());
+
+                for (int local_idx : local_component)
+                    component.push_back(local_to_global[local_idx]);
+
                 segments.push_back(
                     Segment::from_visited(
-                        uf.get_component(u), depth, height, width
+                        component, depth, height, width
                     )
                 );
                 num_segments++;
             }
         }
     }
+
+    delete[] local_to_global;
+
     return num_segments;
 }
 
