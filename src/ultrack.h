@@ -143,28 +143,56 @@ int hierarchical_watershed(
 
         int c_new = uf.unite(c_u, c_v);
 
-        int t_u = c_to_tree_idx.at(u);
-        int t_v = c_to_tree_idx.at(v);
+        int t_u = c_to_tree_idx.at(c_u);
+        int t_v = c_to_tree_idx.at(c_v);
 
         int t_new = tree.add_node(t_u, t_v, weights[idx]);
         c_to_tree_idx.at(c_new) = t_new;
+    }
 
-        if (weights[idx] < min_frontier) continue;
+    std::vector<int> minima(2 * visited.size() - 1, 0);
 
-        int size = uf.get_size(u);
-        if (size > min_num_pixels && size < max_num_pixels)
+    // evaluating if it's a watershed
+    for (int i = visited.size(); i < minima.size(); i++)
+    {
+        int t_u = tree.left_child(i);
+        int t_v = tree.right_child(i);
+        // std::cout << tree.weight(i) << std::endl;
+
+        int min_u = minima.at(t_u);
+        int min_v = minima.at(t_v);
+
+        int current_min = min_u + min_v;
+
+        if (current_min > 0)
+            minima.at(i) = current_min;
+        else {
+            int p = tree.parent(i);
+            minima.at(i) = (tree.weight(i) < tree.weight(p)) ? 1 : 0;
+        }
+
+        if (i == minima.size() - 1 || (min_u > 0 && min_v > 0)) // it's a watershed
         {
-            std::vector<int> local_component = uf.get_component(u);
-            std::vector<int> component = bimap.apply_forward(local_component);
+            if (tree.weight(i) < min_frontier) continue;
 
-            segments.push_back(
-                Segment::from_visited(
-                    component, depth, height, width
-                )
-            );
-            num_segments++;
+            // int size = uf.get_size(i);
+            // if (size > min_num_pixels && size < max_num_pixels)
+            if (true)
+            {
+                // std::vector<int> local_component = uf.get_component(u);
+                // std::vector<int> component = bimap.apply_forward(local_component);
+
+                // segments.push_back(
+                //     Segment::from_visited(
+                //         component, depth, height, width
+                //     )
+                // );
+                num_segments++;
+            }
         }
     }
+
+    std::cout << num_segments << std::endl;
 
     return num_segments;
 }

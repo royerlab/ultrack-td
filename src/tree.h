@@ -10,13 +10,13 @@ struct BinaryTree {
     int current_node;
     std::vector<int> parent_;
     std::vector<int> children_;
-    std::vector<float> weights_;
+    std::vector<float> weight_;
 
     public:
 
     BinaryTree(int n) :
     num_leaves(n), current_node(n),
-    parent_(2 * n - 1), children_(2 * (n - 1), -1), weights_(n - 1, -1.0f)
+    parent_(2 * n - 1), children_(2 * (n - 1), -1), weight_(n - 1, -1.0f)
     {
         std::iota(parent_.begin(), parent_.end(), 0);
     }
@@ -38,6 +38,11 @@ struct BinaryTree {
         return parent_[n];
     }
 
+    int weight(int n)
+    {
+        return weight_.at(n - num_leaves);
+    }
+
     int add_node(int left_child, int right_child, float weight)
     {
         int p = current_node;
@@ -50,7 +55,7 @@ struct BinaryTree {
         children_.at(2 * i) = left_child;
         children_.at(2 * i + 1) = right_child;
 
-        weights_.at(i) = weight;
+        weight_.at(i) = weight;
 
         current_node++;
         return p;
