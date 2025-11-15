@@ -5,6 +5,7 @@
 #include <iostream>
 #include <nanobind/ndarray.h>
 #include <nanobind/nanobind.h>
+#include "bimap.h"
 #include "union_find.h"
 
 namespace nb = nanobind;
@@ -118,21 +119,8 @@ int hierarchical_watershed(
 ) {
     std::vector<size_t> sorted_indices = argsort(weights);
 
-    std::unordered_map<int, int> global_to_local;
-    int *local_to_global = new int[visited.size()];
-
-    int *num_minima = new int[2 * visited.size() - 1];
-    std::memset(num_minima, 0, (2 * visited.size() - 1) * sizeof(int));
-
-    float *mst_weights = new float[visited.size() - 1];
-
-    for (int i = 0; i < visited.size(); i++) {
-        global_to_local[visited[i]] = i;
-        local_to_global[i] = visited[i];
-    }
-    int *local_edges = new int[edges.size()];
-    for (int i = 0; i < edges.size(); i++)
-        local_edges[i] = global_to_local[edges[i]];
+    BiMap bimap(visited);
+    std::vector<int> local_edges = bimap.apply_backward(edges);
 
     int num_segments = 0;
     UnionFind uf(visited.size());
@@ -149,51 +137,11 @@ int hierarchical_watershed(
 
         int c_new = uf.unite(c_u, c_v);
 
-        int left_child = uf.tree.children[2 * i];
-        int right_child = uf.tree.children[2 * i + 1];
-
-        float parent_w = weights[idx];
-        bool is_ws = true;
-
-        if (
-            left_child >= visited.size() &&
-            num_minima[left_child] == 0 &&
-            mst_weights[left_child - visited.size()] < parent_w
-        ) {
-            num_minima[left_child] = 1;
-        } else {
-            // num_minima[left_child] = 0;
-            is_ws = false;
-        }
-
-        if (
-            right_child >= visited.size() &&
-            num_minima[right_child] == 0 &&
-            mst_weights[right_child - visited.size()] < parent_w
-        ) {
-            num_minima[right_child] = 1;
-        } else {
-            // num_minima[right_child] = 0;
-            is_ws = false;
-        }
-
-        num_minima[c_new] = num_minima[left_child] + num_minima[right_child];
-
-       // std::cout << tree_u << " " << tree_v << " " << new_node_id << std::endl;
-        std::cout << "num_minima: " << num_minima[c_new] << std::endl;
-        
-        // edge weight in binary partition tree
-        mst_weights[i] = parent_w;
-        if (!is_ws) continue;
-        // if (parent_w < min_frontier) continue;
-
         int size = uf.get_size(u);
         if (size > min_num_pixels && size < max_num_pixels)
         {
             std::vector<int> local_component = uf.get_component(u);
-            std::vector<int> component; component.reserve(local_component.size());
-            for (int local_idx : local_component)
-                component.push_back(local_to_global[local_idx]);
+            std::vector<int> component = bimap.apply_forward(local_component);
 
             segments.push_back(
                 Segment::from_visited(
@@ -203,11 +151,6 @@ int hierarchical_watershed(
             num_segments++;
         }
     }
-
-    delete[] local_to_global;
-    delete[] num_minima;
-    delete[] local_edges;
-    delete[] mst_weights;
 
     return num_segments;
 }
