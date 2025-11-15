@@ -2,6 +2,7 @@
 #define UNION_FIND_H
 
 #include <vector>
+#include <numeric>
 #include <algorithm>
 #include <iostream>
 
@@ -33,15 +34,10 @@ public:
      * Each element starts in its own set with size 1.
      * Time complexity: O(n)
      */
-    explicit UnionFind(int n) : num_components(n) {
-        parent.resize(n);
-        rank.resize(n, 0);
-        size.resize(n, 1);
-
-        for (int i = 0; i < n; i++) {
-            parent[i] = i;
-        }
-        num_nodes = n;
+    explicit UnionFind(int n) :
+    num_components(n), num_nodes(n),
+    parent(n), rank(n, 0), size(n, 1) {
+        std::iota(parent.begin(), parent.end(), 0);
     }
 
     /**

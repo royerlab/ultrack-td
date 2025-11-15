@@ -1,3 +1,4 @@
+#include <cfloat>
 #include <vector>
 #include <algorithm>
 #include <cstring>
@@ -93,7 +94,8 @@ struct Segment {
 };
 
 
-std::vector<size_t> argsort(const std::vector<float> &array)
+template <typename T>
+std::vector<size_t> argsort(const std::vector<T> &array)
 {
     std::vector<size_t> indices(array.size());
     std::iota(indices.begin(), indices.end(), 0);
@@ -145,19 +147,94 @@ int hierarchical_watershed(
     std::iota(c_to_tree_idx.begin(), c_to_tree_idx.end(), 0);
 
     BiMap bimap(visited);
-    BinaryTree tree(visited.size());
     std::vector<int> minima(2 * visited.size() - 1, 0);
 
     std::vector<int> local_edges = bimap.apply_backward(edges);
 
     int num_segments = 0;
+    BinaryTree tree(visited.size());
     UnionFind uf(visited.size());
+
+    std::vector<int> areas(2 * visited.size() - 1, 0);
+    std::vector<int> mst_edges(2 * visited.size() - 2, -1);
 
     for (size_t i = 0; i < sorted_indices.size(); i++)
     {
         int idx = sorted_indices[i];
         int u = local_edges[idx * 2];
         int v = local_edges[idx * 2 + 1];
+
+        int c_u = uf.find(u);
+        int c_v = uf.find(v);
+        if (c_u == c_v) continue;
+
+        int c_new = uf.unite(c_u, c_v);
+
+        int t_u = c_to_tree_idx.at(c_u);
+        int t_v = c_to_tree_idx.at(c_v);
+
+        int t_new = tree.add_node(t_u, t_v, weights[idx]);
+        c_to_tree_idx.at(c_new) = t_new;
+
+        areas[t_new] = areas[t_u] + areas[t_v];
+
+        int mst_edge_idx = 2 * (t_new - visited.size());
+        mst_edges[mst_edge_idx] = u;
+        mst_edges[mst_edge_idx + 1] = v;
+
+        /*
+        // evaluating if it's a watershed
+        int min_u = _update_minima(t_u, minima, tree);
+        int min_v = _update_minima(t_v, minima, tree);
+
+        minima.at(t_new) = min_u + min_v;
+        if (i == sorted_indices.size() - 1 || (min_u > 0 && min_v > 0)) // it's a watershed
+        {
+            if (weights[idx] < min_frontier) continue;
+
+            int size = uf.get_size(c_new);
+            if (
+                size_u > min_num_pixels && size_v > min_num_pixels &&
+                size > min_num_pixels && size < max_num_pixels
+            ) {
+                std::vector<int> local_component = uf.get_component(c_new);
+                std::vector<int> component = bimap.apply_forward(local_component);
+
+                segments.push_back(
+                    Segment::from_visited(
+                        component, depth, height, width
+                    )
+                );
+                num_segments++;
+            }
+        }
+        */
+    }
+
+    // for (int i = visited.size(); i < 2 * visited.size() - 2; i++)
+    for (int i = 2 * visited.size() - 3; i >= visited.size(); i--) // backwards to avoid getting update values
+    { // skipping root on purpose
+        if (fabs(tree.weight(i) - tree.weight(tree.parent(i))) < FLT_EPSILON) {
+            areas.at(i) = std::max(areas.at(tree.left_child(i)), areas.at(tree.right_child(i)));
+        }
+    }
+
+    // for (int i = 0; i < areas.size(); i++) {
+    //     // if (areas.at(i) < min_num_pixels) areas.at(i) = min_num_pixels;
+    //     areas.at(i) = std::max(areas.at(i), min_num_pixels);
+    // }
+
+    std::vector<int> sliced_areas(areas.begin() + visited.size(), areas.end());
+
+    sorted_indices = argsort(sliced_areas);
+    tree = BinaryTree(visited.size());
+    uf = UnionFind(visited.size());
+
+    for (size_t i = 0; i < sorted_indices.size(); i++)
+    {
+        int idx = sorted_indices.at(i);
+        int u = mst_edges.at(idx * 2);
+        int v = mst_edges.at(idx * 2 + 1);
 
         int c_u = uf.find(u);
         int c_v = uf.find(v);
