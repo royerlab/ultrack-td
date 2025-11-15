@@ -163,8 +163,8 @@ int hierarchical_watershed(
         int c_v = uf.find(v);
         if (c_u == c_v) continue;
 
-        // int size_u = uf.get_size(c_u);
-        // int size_v = uf.get_size(c_v);
+        int size_u = uf.get_size(c_u);
+        int size_v = uf.get_size(c_v);
 
         int c_new = uf.unite(c_u, c_v);
 
@@ -183,12 +183,12 @@ int hierarchical_watershed(
         {
             if (weights[idx] < min_frontier) continue;
 
-            int size = uf.get_size(c_u);
+            int size = uf.get_size(c_new);
             if (
-                // size_u > min_num_pixels && size_v > min_num_pixels &&
+                size_u > min_num_pixels && size_v > min_num_pixels &&
                 size > min_num_pixels && size < max_num_pixels
             ) {
-                std::vector<int> local_component = uf.get_component(c_u);
+                std::vector<int> local_component = uf.get_component(c_new);
                 std::vector<int> component = bimap.apply_forward(local_component);
 
                 segments.push_back(
