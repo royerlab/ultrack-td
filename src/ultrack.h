@@ -106,6 +106,27 @@ std::vector<size_t> argsort(const std::vector<float> &array)
 }
 
 
+int _update_minima(
+    int i,
+    std::vector<int> &minima,
+    BinaryTree &tree
+) {
+    /*
+    Assigns minima depending on the change in weight between the current node and its parent.
+    */
+    if (i < tree.num_leaves)
+        return 0;
+
+    if (minima.at(i) == 0) {
+        int p = tree.parent(i);
+        minima.at(i) = (tree.weight(i) < tree.weight(p)) ? 1 : 0;
+    }
+    return minima.at(i);
+}
+
+
+
+
 int hierarchical_watershed(
     std::vector<Segment> &segments,
     const std::vector<int> &visited,
@@ -125,6 +146,7 @@ int hierarchical_watershed(
 
     BiMap bimap(visited);
     BinaryTree tree(visited.size());
+    std::vector<int> minima(2 * visited.size() - 1, 0);
 
     std::vector<int> local_edges = bimap.apply_backward(edges);
 
@@ -141,6 +163,9 @@ int hierarchical_watershed(
         int c_v = uf.find(v);
         if (c_u == c_v) continue;
 
+        // int size_u = uf.get_size(c_u);
+        // int size_v = uf.get_size(c_v);
+
         int c_new = uf.unite(c_u, c_v);
 
         int t_u = c_to_tree_idx.at(c_u);
@@ -148,45 +173,29 @@ int hierarchical_watershed(
 
         int t_new = tree.add_node(t_u, t_v, weights[idx]);
         c_to_tree_idx.at(c_new) = t_new;
-    }
 
-    std::vector<int> minima(2 * visited.size() - 1, 0);
+        // evaluating if it's a watershed
+        int min_u = _update_minima(t_u, minima, tree);
+        int min_v = _update_minima(t_v, minima, tree);
 
-    // evaluating if it's a watershed
-    for (int i = visited.size(); i < minima.size(); i++)
-    {
-        int t_u = tree.left_child(i);
-        int t_v = tree.right_child(i);
-        // std::cout << tree.weight(i) << std::endl;
-
-        int min_u = minima.at(t_u);
-        int min_v = minima.at(t_v);
-
-        int current_min = min_u + min_v;
-
-        if (current_min > 0)
-            minima.at(i) = current_min;
-        else {
-            int p = tree.parent(i);
-            minima.at(i) = (tree.weight(i) < tree.weight(p)) ? 1 : 0;
-        }
-
-        if (i == minima.size() - 1 || (min_u > 0 && min_v > 0)) // it's a watershed
+        minima.at(t_new) = min_u + min_v;
+        if (i == sorted_indices.size() - 1 || (min_u > 0 && min_v > 0)) // it's a watershed
         {
-            if (tree.weight(i) < min_frontier) continue;
+            if (weights[idx] < min_frontier) continue;
 
-            // int size = uf.get_size(i);
-            // if (size > min_num_pixels && size < max_num_pixels)
-            if (true)
-            {
-                // std::vector<int> local_component = uf.get_component(u);
-                // std::vector<int> component = bimap.apply_forward(local_component);
+            int size = uf.get_size(c_u);
+            if (
+                // size_u > min_num_pixels && size_v > min_num_pixels &&
+                size > min_num_pixels && size < max_num_pixels
+            ) {
+                std::vector<int> local_component = uf.get_component(c_u);
+                std::vector<int> component = bimap.apply_forward(local_component);
 
-                // segments.push_back(
-                //     Segment::from_visited(
-                //         component, depth, height, width
-                //     )
-                // );
+                segments.push_back(
+                    Segment::from_visited(
+                        component, depth, height, width
+                    )
+                );
                 num_segments++;
             }
         }

@@ -6,13 +6,14 @@ struct BinaryTree {
 
     private:
 
-    int num_leaves;
     int current_node;
     std::vector<int> parent_;
     std::vector<int> children_;
     std::vector<float> weight_;
 
     public:
+
+    int num_leaves;
 
     BinaryTree(int n) :
     num_leaves(n), current_node(n),
