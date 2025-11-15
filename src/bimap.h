@@ -19,14 +19,14 @@
 
 
 struct BiMap {
+    private:
+
     std::vector<int> forward;
     std::unordered_map<int, int> backward;
 
-    BiMap(const std::vector<int> &values)
+    public:
+    BiMap(const std::vector<int> &values) : forward(values.size()), backward(values.size())
     {
-        forward.resize(values.size());
-        backward.reserve(values.size());
-
         for (int i = 0; i < values.size(); i++)
         {
             forward[i] = values[i];

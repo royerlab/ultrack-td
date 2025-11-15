@@ -5,11 +5,6 @@
 #include <algorithm>
 #include <iostream>
 
-struct Tree {
-    std::vector<int> root;
-    std::vector<int> children;
-};
-
 /**
  * Tarjan's Union-Find (Disjoint Set Union) data structure
  * with path compression and union by rank.
@@ -27,7 +22,6 @@ private:
     int num_nodes;
 
 public:
-    Tree tree;
 
     /**
      * Initialize empty union-find structure.
@@ -44,12 +38,8 @@ public:
         rank.resize(n, 0);
         size.resize(n, 1);
 
-        tree.root.resize(n);
-        tree.children.reserve(2 * n);
-
         for (int i = 0; i < n; i++) {
             parent[i] = i;
-            tree.root[i] = i;
         }
         num_nodes = n;
     }
@@ -83,17 +73,10 @@ public:
         parent[c_x] = c_y;
         size[c_y] += size[c_x];
 
-        int t_x = tree.root[c_x];
-        int t_y = tree.root[c_y];
-
-        tree.root[c_y] = num_nodes;
-        tree.children.push_back(t_x);
-        tree.children.push_back(t_y);
-
         num_nodes++;
         num_components--;
 
-        return num_nodes - 1;
+        return c_y;
     }
 
     /**

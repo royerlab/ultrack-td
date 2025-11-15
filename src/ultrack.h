@@ -6,6 +6,7 @@
 #include <nanobind/ndarray.h>
 #include <nanobind/nanobind.h>
 #include "bimap.h"
+#include "tree.h"
 #include "union_find.h"
 
 namespace nb = nanobind;
@@ -119,7 +120,12 @@ int hierarchical_watershed(
 ) {
     std::vector<size_t> sorted_indices = argsort(weights);
 
+    std::vector<int> c_to_tree_idx(visited.size());
+    std::iota(c_to_tree_idx.begin(), c_to_tree_idx.end(), 0);
+
     BiMap bimap(visited);
+    BinaryTree tree(visited.size());
+
     std::vector<int> local_edges = bimap.apply_backward(edges);
 
     int num_segments = 0;
@@ -136,6 +142,14 @@ int hierarchical_watershed(
         if (c_u == c_v) continue;
 
         int c_new = uf.unite(c_u, c_v);
+
+        int t_u = c_to_tree_idx.at(u);
+        int t_v = c_to_tree_idx.at(v);
+
+        int t_new = tree.add_node(t_u, t_v, weights[idx]);
+        c_to_tree_idx.at(c_new) = t_new;
+
+        if (weights[idx] < min_frontier) continue;
 
         int size = uf.get_size(u);
         if (size > min_num_pixels && size < max_num_pixels)
