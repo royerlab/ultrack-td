@@ -127,8 +127,6 @@ int _update_minima(
 }
 
 
-
-
 int hierarchical_watershed(
     std::vector<Segment> &segments,
     const std::vector<int> &visited,
@@ -147,8 +145,6 @@ int hierarchical_watershed(
     std::iota(c_to_tree_idx.begin(), c_to_tree_idx.end(), 0);
 
     BiMap bimap(visited);
-    std::vector<int> minima(2 * visited.size() - 1, 0);
-
     std::vector<int> local_edges = bimap.apply_backward(edges);
 
     int num_segments = 0;
@@ -156,7 +152,10 @@ int hierarchical_watershed(
     UnionFind uf(visited.size());
 
     std::vector<int> areas(2 * visited.size() - 1, 0);
+    std::fill(areas.begin(), areas.begin() + visited.size(), 1);
+    
     std::vector<int> mst_edges(2 * visited.size() - 2, -1);
+    std::vector<float> mst_weights(2 * visited.size() - 2, 0.0f);
 
     for (size_t i = 0; i < sorted_indices.size(); i++)
     {
@@ -178,9 +177,11 @@ int hierarchical_watershed(
 
         areas[t_new] = areas[t_u] + areas[t_v];
 
-        int mst_edge_idx = 2 * (t_new - visited.size());
-        mst_edges[mst_edge_idx] = u;
-        mst_edges[mst_edge_idx + 1] = v;
+        int mst_idx = t_new - visited.size();
+        mst_edges.at(2 * mst_idx) = u;
+        mst_edges.at(2 * mst_idx + 1) = v;
+
+        mst_weights.at(mst_idx) = weights[idx];
 
         /*
         // evaluating if it's a watershed
@@ -194,7 +195,7 @@ int hierarchical_watershed(
 
             int size = uf.get_size(c_new);
             if (
-                size_u > min_num_pixels && size_v > min_num_pixels &&
+                // size_u > min_num_pixels && size_v > min_num_pixels &&
                 size > min_num_pixels && size < max_num_pixels
             ) {
                 std::vector<int> local_component = uf.get_component(c_new);
@@ -211,12 +212,22 @@ int hierarchical_watershed(
         */
     }
 
-    // for (int i = visited.size(); i < 2 * visited.size() - 2; i++)
-    for (int i = 2 * visited.size() - 3; i >= visited.size(); i--) // backwards to avoid getting update values
+    for (int i = visited.size(); i < 2 * visited.size() - 2; i++)
     { // skipping root on purpose
-        if (fabs(tree.weight(i) - tree.weight(tree.parent(i))) < FLT_EPSILON) {
-            areas.at(i) = std::max(areas.at(tree.left_child(i)), areas.at(tree.right_child(i)));
+        if (fabs(tree.weight(i) - tree.weight(tree.parent(i))) < FLT_EPSILON)
+        {
+            int left_child = tree.left_child(i);
+            int right_child = tree.right_child(i);
+            int left_value = (left_child < visited.size()) ? 0 : areas.at(left_child);
+            int right_value = (right_child < visited.size()) ? 0 : areas.at(right_child);
+            areas.at(i) = std::max(left_value, right_value);
         }
+    }
+
+    // mst edges are the minimum of the attributes of the two children
+    for (int i = 2 * visited.size() - 2; i >= visited.size(); i--)
+    {
+        areas.at(i) = std::min(areas.at(tree.left_child(i)), areas.at(tree.right_child(i)));
     }
 
     // for (int i = 0; i < areas.size(); i++) {
@@ -227,8 +238,12 @@ int hierarchical_watershed(
     std::vector<int> sliced_areas(areas.begin() + visited.size(), areas.end());
 
     sorted_indices = argsort(sliced_areas);
+    std::vector<int> minima(2 * visited.size() - 1, 0);
+
+    // resetting data structures for the second pass
     tree = BinaryTree(visited.size());
     uf = UnionFind(visited.size());
+    std::iota(c_to_tree_idx.begin(), c_to_tree_idx.end(), 0);
 
     for (size_t i = 0; i < sorted_indices.size(); i++)
     {
@@ -248,17 +263,19 @@ int hierarchical_watershed(
         int t_u = c_to_tree_idx.at(c_u);
         int t_v = c_to_tree_idx.at(c_v);
 
-        int t_new = tree.add_node(t_u, t_v, weights[idx]);
+        int t_new = tree.add_node(t_u, t_v, sliced_areas[idx]);
         c_to_tree_idx.at(c_new) = t_new;
 
         // evaluating if it's a watershed
         int min_u = _update_minima(t_u, minima, tree);
         int min_v = _update_minima(t_v, minima, tree);
 
+        bool is_root = t_new == 2 * visited.size() - 2;
+
         minima.at(t_new) = min_u + min_v;
-        if (i == sorted_indices.size() - 1 || (min_u > 0 && min_v > 0)) // it's a watershed
+        if ((min_u > 0 && min_v > 0) || is_root) // it's a watershed
         {
-            if (weights[idx] < min_frontier) continue;
+            if (mst_weights.at(idx) < min_frontier) continue;
 
             int size = uf.get_size(c_new);
             if (
@@ -273,6 +290,7 @@ int hierarchical_watershed(
                         component, depth, height, width
                     )
                 );
+                std::cout << "Found segment with " << component.size() << " pixels" << std::endl;
                 num_segments++;
             }
         }
@@ -298,6 +316,7 @@ void compute_connected_components(
     float min_frontier,
     int cur_idx
 ) {
+    seen_data[cur_idx] = true;
     std::vector<int> queue = {cur_idx};
     std::vector<int> visited;
 
@@ -324,7 +343,6 @@ void compute_connected_components(
     {
         int idx = queue.back();
         queue.pop_back();
-        seen_data[idx] = true;
         visited.push_back(idx);
 
         int cur_z = idx / (height * width);
@@ -347,15 +365,21 @@ void compute_connected_components(
                 nx >= 0 && nx < width
             ) {
                 int nidx = nz * height * width + ny * width + nx;
-                if (fg_data[nidx] && !seen_data[nidx]) {
-                    seen_data[nidx] = true;
-                    queue.push_back(nidx);
+                if (fg_data[nidx])
+                {
+                    if (!seen_data[nidx]) { // avoiding adding the same pixel twice
+                        seen_data[nidx] = true;
+                        queue.push_back(nidx);
+                    }
 
-                    edges.push_back(idx);
-                    edges.push_back(nidx);
+                    if (idx < nidx) // making sure we don't add the same edge twice
+                    {
+                        edges.push_back(idx);
+                        edges.push_back(nidx);
 
-                    float w = 0.5f * (ctr_data[idx] + ctr_data[nidx]);
-                    weights.push_back(w);
+                        float w = 0.5f * (ctr_data[idx] + ctr_data[nidx]);
+                        weights.push_back(w);
+                    }
                 }
             }
         }
