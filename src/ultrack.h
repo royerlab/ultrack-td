@@ -127,10 +127,10 @@ int _update_minima(
     if (i < tree.num_leaves)
         return 0;
 
-    if (minima.at(i) == 0) {
-        minima.at(i) = (tree.weight(i) < parent_weight) ? 1 : 0;
+    if (minima[i] == 0) {
+        minima[i] = (tree.weight(i) < parent_weight) ? 1 : 0;
     }
-    return minima.at(i);
+    return minima[i];
 }
 
 
@@ -179,19 +179,19 @@ int hierarchical_watershed(
 
         int c_new = uf.unite(c_u, c_v);
 
-        int t_u = c_to_tree_idx.at(c_u);
-        int t_v = c_to_tree_idx.at(c_v);
+        int t_u = c_to_tree_idx[c_u];
+        int t_v = c_to_tree_idx[c_v];
 
         int t_new = tree.add_node(t_u, t_v, weights[idx]);
-        c_to_tree_idx.at(c_new) = t_new;
+        c_to_tree_idx[c_new] = t_new;
 
         areas[t_new] = areas[t_u] + areas[t_v];
 
         int mst_idx = t_new - visited.size();
-        mst_edges.at(2 * mst_idx) = u;
-        mst_edges.at(2 * mst_idx + 1) = v;
+        mst_edges[2 * mst_idx] = u;
+        mst_edges[2 * mst_idx + 1] = v;
 
-        mst_weights.at(mst_idx) = weights[idx]; // TODO: is this really necessary
+        mst_weights[mst_idx] = weights[idx]; // TODO: is this really necessary
     }
 
 
@@ -201,9 +201,9 @@ int hierarchical_watershed(
     { // skipping root on purpose
         if (fabs(tree.weight(i) - tree.weight(tree.parent(i))) < FLT_EPSILON)
         {
-            areas.at(i) = std::max(
-                areas.at(tree.left_child(i)),
-                areas.at(tree.right_child(i))
+            areas[i] = std::max(
+                areas[tree.left_child(i)],
+                areas[tree.right_child(i)]
             );
         }
     }
@@ -212,7 +212,7 @@ int hierarchical_watershed(
     // mst edges are the minimum of the attributes of the two children
     for (int i = num_nodes - 1; i >= num_leaves; i--)
     {
-        areas.at(i) = std::min(areas.at(tree.left_child(i)), areas.at(tree.right_child(i)));
+        areas[i] = std::min(areas[tree.left_child(i)], areas[tree.right_child(i)]);
     }
 
     std::vector<int> sliced_areas(areas.begin() + visited.size(), areas.end());
@@ -227,9 +227,9 @@ int hierarchical_watershed(
 
     for (size_t i = 0; i < sorted_indices.size(); i++)
     {
-        int idx = sorted_indices.at(i);
-        int u = mst_edges.at(idx * 2);
-        int v = mst_edges.at(idx * 2 + 1);
+        int idx = sorted_indices[i];
+        int u = mst_edges[idx * 2];
+        int v = mst_edges[idx * 2 + 1];
 
         int c_u = uf.find(u);
         int c_v = uf.find(v);
@@ -238,10 +238,10 @@ int hierarchical_watershed(
         int size_u = uf.get_size(c_u);
         int size_v = uf.get_size(c_v);
 
-        int t_u = c_to_tree_idx.at(c_u);
-        int t_v = c_to_tree_idx.at(c_v);
+        int t_u = c_to_tree_idx[c_u];
+        int t_v = c_to_tree_idx[c_v];
 
-        float parent_weight = sliced_areas.at(idx);
+        float parent_weight = sliced_areas[idx];
         int min_u = _update_minima(t_u, parent_weight, minima, tree);
         int min_v = _update_minima(t_v, parent_weight, minima, tree);
 
@@ -250,20 +250,20 @@ int hierarchical_watershed(
         int size_new = size_u + size_v;
         int t_new = tree.add_node(t_u, t_v, parent_weight);
 
-        minima.at(t_new) = min_u + min_v;
+        minima[t_new] = min_u + min_v;
 
         if (is_watershed)
         {
             bool merge_exceeds_size = size_new >= max_num_pixels && (size_u < max_num_pixels || size_v < max_num_pixels);
 
-            if (mst_weights.at(idx) < min_frontier && !merge_exceeds_size) continue;
+            if (mst_weights[idx] < min_frontier && !merge_exceeds_size) continue;
 
             if (size_u >= min_num_pixels && size_u < max_num_pixels &&
                 size_v >= min_num_pixels && size_v < max_num_pixels)
             {
                 for (int c : {c_u, c_v})
                 {
-                    int t_id = c_to_tree_idx.at(c);
+                    int t_id = c_to_tree_idx[c];
                     std::vector<int> local_component = uf.get_component(c);
                     std::vector<int> component = bimap.apply_forward(local_component);
                     segments.push_back(
@@ -280,7 +280,7 @@ int hierarchical_watershed(
 
         // finishing merging the two components
         int c_new = uf.unite(c_u, c_v);
-        c_to_tree_idx.at(c_new) = t_new;
+        c_to_tree_idx[c_new] = t_new;
     }
 
     if (visited.size() < max_num_pixels || num_segments == 0)

@@ -41,22 +41,22 @@ struct BinaryTree {
 
     int weight(int n)
     {
-        return weight_.at(n - num_leaves);
+        return weight_[n - num_leaves];
     }
 
     int add_node(int left_child, int right_child, float weight)
     {
         int p = current_node;
 
-        parent_.at(p) = p;
-        parent_.at(left_child) = p;
-        parent_.at(right_child) = p;
+        parent_[p] = p;
+        parent_[left_child] = p;
+        parent_[right_child] = p;
 
         int i = p - num_leaves;
-        children_.at(2 * i) = left_child;
-        children_.at(2 * i + 1) = right_child;
+        children_[2 * i] = left_child;
+        children_[2 * i + 1] = right_child;
 
-        weight_.at(i) = weight;
+        weight_[i] = weight;
 
         current_node++;
         return p;
