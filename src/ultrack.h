@@ -122,6 +122,14 @@ int _update_minima(
     if (minima.at(i) == 0) {
         int p = tree.parent(i);
         minima.at(i) = (tree.weight(i) < tree.weight(p)) ? 1 : 0;
+
+        if (minima.at(i) != 0) {
+            std::cout << "i: " << i << std::endl;
+            std::cout << "p: " << tree.parent(i) << std::endl;
+            std::cout << "minima.at(i): " << minima.at(i) << std::endl;
+            std::cout << "tree.weight(i): " << tree.weight(i) << std::endl;
+            std::cout << "tree.weight(p): " << tree.weight(tree.parent(i)) << std::endl;
+        }
     }
     return minima.at(i);
 }
@@ -155,7 +163,7 @@ int hierarchical_watershed(
     std::fill(areas.begin(), areas.begin() + visited.size(), 1);
     
     std::vector<int> mst_edges(2 * visited.size() - 2, -1);
-    std::vector<float> mst_weights(2 * visited.size() - 2, 0.0f);
+    std::vector<float> mst_weights(visited.size() - 1, 0.0f);
 
     for (size_t i = 0; i < sorted_indices.size(); i++)
     {
@@ -181,59 +189,29 @@ int hierarchical_watershed(
         mst_edges.at(2 * mst_idx) = u;
         mst_edges.at(2 * mst_idx + 1) = v;
 
-        mst_weights.at(mst_idx) = weights[idx];
-
-        /*
-        // evaluating if it's a watershed
-        int min_u = _update_minima(t_u, minima, tree);
-        int min_v = _update_minima(t_v, minima, tree);
-
-        minima.at(t_new) = min_u + min_v;
-        if (i == sorted_indices.size() - 1 || (min_u > 0 && min_v > 0)) // it's a watershed
-        {
-            if (weights[idx] < min_frontier) continue;
-
-            int size = uf.get_size(c_new);
-            if (
-                // size_u > min_num_pixels && size_v > min_num_pixels &&
-                size > min_num_pixels && size < max_num_pixels
-            ) {
-                std::vector<int> local_component = uf.get_component(c_new);
-                std::vector<int> component = bimap.apply_forward(local_component);
-
-                segments.push_back(
-                    Segment::from_visited(
-                        component, depth, height, width
-                    )
-                );
-                num_segments++;
-            }
-        }
-        */
+        mst_weights.at(mst_idx) = weights[idx]; // TODO: is this really necessary
     }
+
+
+    std::fill(areas.begin(), areas.begin() + visited.size(), 1);
 
     for (int i = visited.size(); i < 2 * visited.size() - 2; i++)
     { // skipping root on purpose
         if (fabs(tree.weight(i) - tree.weight(tree.parent(i))) < FLT_EPSILON)
         {
-            int left_child = tree.left_child(i);
-            int right_child = tree.right_child(i);
-            int left_value = (left_child < visited.size()) ? 0 : areas.at(left_child);
-            int right_value = (right_child < visited.size()) ? 0 : areas.at(right_child);
-            areas.at(i) = std::max(left_value, right_value);
+            areas.at(i) = std::max(
+                areas.at(tree.left_child(i)),
+                areas.at(tree.right_child(i))
+            );
         }
     }
+
 
     // mst edges are the minimum of the attributes of the two children
     for (int i = 2 * visited.size() - 2; i >= visited.size(); i--)
     {
         areas.at(i) = std::min(areas.at(tree.left_child(i)), areas.at(tree.right_child(i)));
     }
-
-    // for (int i = 0; i < areas.size(); i++) {
-    //     // if (areas.at(i) < min_num_pixels) areas.at(i) = min_num_pixels;
-    //     areas.at(i) = std::max(areas.at(i), min_num_pixels);
-    // }
 
     std::vector<int> sliced_areas(areas.begin() + visited.size(), areas.end());
 
@@ -263,7 +241,7 @@ int hierarchical_watershed(
         int t_u = c_to_tree_idx.at(c_u);
         int t_v = c_to_tree_idx.at(c_v);
 
-        int t_new = tree.add_node(t_u, t_v, sliced_areas[idx]);
+        int t_new = tree.add_node(t_u, t_v, sliced_areas.at(idx));
         c_to_tree_idx.at(c_new) = t_new;
 
         // evaluating if it's a watershed
@@ -275,6 +253,17 @@ int hierarchical_watershed(
         minima.at(t_new) = min_u + min_v;
         if ((min_u > 0 && min_v > 0) || is_root) // it's a watershed
         {
+            std::cout << "--------------------------------" << std::endl;
+            std::cout << "Found watershed: " << t_new << std::endl;
+            std::cout << "mst_weights.at(idx): " << mst_weights.at(idx) << std::endl;
+            std::cout << "min_frontier: " << min_frontier << std::endl;
+            std::cout << "min_u: " << min_u << std::endl;
+            std::cout << "min_v: " << min_v << std::endl;
+            std::cout << "areas.at(t_new): " << areas.at(idx + visited.size()) << std::endl;
+            std::cout << "areas.at(t_u): " << areas.at(u) << std::endl;
+            std::cout << "areas.at(t_v): " << areas.at(v) << std::endl;
+            std::cout << "minima.at(t_new): " << minima.at(t_new) << std::endl;
+
             if (mst_weights.at(idx) < min_frontier) continue;
 
             int size = uf.get_size(c_new);
@@ -399,6 +388,7 @@ void compute_connected_components(
             )
         );
     }
+    std::cout << "num_visited: " << visited.size() << std::endl;
 }
 
 
