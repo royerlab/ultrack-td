@@ -8,6 +8,7 @@
 #include <nanobind/ndarray.h>
 #include <nanobind/nanobind.h>
 #include "bimap.h"
+#include "counting_map.h"
 #include "tree.h"
 #include "union_find.h"
 
@@ -22,15 +23,15 @@ struct Segment {
     int z;
     int y;
     int x;
-    int id;
-    int parent_id;
+    long id;
+    long parent_id;
 
     static Segment from_visited_and_bbox(
         const std::vector<int>& visited,
         int min_z, int min_y, int min_x,
         int max_z, int max_y, int max_x,
         int depth, int height, int width,
-        int id = -1, int parent_id = -1
+        long id = -1, long parent_id = -1
     ) {
         size_t mask_depth = max_z - min_z + 1;
         size_t mask_height = max_y - min_y + 1;
@@ -51,7 +52,7 @@ struct Segment {
         });
         auto mask = nb::ndarray<nb::numpy, bool>(mask_data, 3, shape, mask_owner);
 
-        int *bbox_data = new int[6]{min_z, min_y, min_x, max_z, max_y, max_x};
+        int *bbox_data = new int[6]{min_z, min_y, min_x, max_z + 1, max_y + 1, max_x + 1};
         size_t bbox_shape[1] = {6};
         nb::capsule bbox_owner(bbox_data, [](void *p) noexcept {
             delete[] (int *) p;
@@ -73,7 +74,7 @@ struct Segment {
     static Segment from_visited(
         const std::vector<int> &visited,
         int depth, int height, int width,
-        int id = -1, int parent_id = -1
+        long id = -1, long parent_id = -1
     ) {
         int min_z = depth - 1;
         int min_y = height - 1;
@@ -145,7 +146,8 @@ int hierarchical_watershed(
     float min_frontier,
     int depth,
     int height,
-    int width
+    int width,
+    long *id_offset_ptr
 ) {
     std::vector<size_t> sorted_indices = argsort(weights);
 
@@ -209,7 +211,6 @@ int hierarchical_watershed(
         }
     }
 
-
     // mst edges are the minimum of the attributes of the two children
     for (int i = num_nodes - 1; i >= num_leaves; i--)
     {
@@ -225,6 +226,9 @@ int hierarchical_watershed(
     tree = BinaryTree(visited.size());
     uf = UnionFind(visited.size());
     std::iota(c_to_tree_idx.begin(), c_to_tree_idx.end(), 0);
+
+
+    CountingMap<long> id_map(*id_offset_ptr);
 
     for (size_t i = 0; i < sorted_indices.size(); i++)
     {
@@ -270,7 +274,7 @@ int hierarchical_watershed(
                     segments.push_back(
                         Segment::from_visited(
                             component, depth, height, width,
-                            t_id, t_new
+                            id_map.get(t_id), id_map.get(t_new)
                         )
                     );
 
@@ -289,11 +293,13 @@ int hierarchical_watershed(
         segments.push_back(
             Segment::from_visited(
                 visited, depth, height, width,
-                num_nodes - 1, num_nodes - 1
+                id_map.get(num_nodes - 1), id_map.get(num_nodes - 1)
             )
         );
         num_segments++;
     }
+
+    *id_offset_ptr = id_map.next_value();
 
     return num_segments;
 }
@@ -311,7 +317,8 @@ void compute_connected_components(
     int min_num_pixels,
     int max_num_pixels,
     float min_frontier,
-    int cur_idx
+    int cur_idx,
+    long *id_offset_ptr
 ) {
     seen_data[cur_idx] = true;
     std::vector<int> queue = {cur_idx};
@@ -385,7 +392,7 @@ void compute_connected_components(
     int num_segments = hierarchical_watershed(
         segments, visited, edges, weights,
         min_num_pixels, max_num_pixels, min_frontier,
-        depth, height, width
+        depth, height, width, id_offset_ptr
     );
 }
 
@@ -409,7 +416,7 @@ std::vector<Segment> compute_segmentation_hypotheses(
     T *ctr_data = contours.data();
 
     std::vector<Segment> segments;
-    int id_offset = 0;
+    long id_offset = 1;
 
     for (int z = 0; z < depth; z++) {
         int z_step = z * height * width;
@@ -417,19 +424,14 @@ std::vector<Segment> compute_segmentation_hypotheses(
             int y_step = y * width;
             for (int x = 0; x < width; x++) {
                 int idx = z_step + y_step + x;
-                if (fg_data[idx] && !seen_data[idx]) {
+                if (fg_data[idx] && !seen_data[idx])
+                {
                     compute_connected_components(
                         segments, fg_data, ctr_data, seen_data,
                         depth, height, width,
-                        min_num_pixels, max_num_pixels, min_frontier, idx
+                        min_num_pixels, max_num_pixels, min_frontier, idx, &id_offset
                     );
-                    int max_id = 0;
-                    for (Segment &segment : segments) {
-                        segment.id += id_offset;
-                        segment.parent_id += id_offset;
-                        max_id = std::max(max_id, segment.id);
-                    }
-                    id_offset = max_id + 1;
+
                 }
             }
         }
@@ -440,21 +442,23 @@ std::vector<Segment> compute_segmentation_hypotheses(
 }
 
 
-std::unordered_map<int, std::vector<int>> overlap_dict_from_segments(
+std::unordered_map<long, std::vector<long>> overlap_dict_from_segments(
     const std::vector<Segment> &segments
 ) {
-    std::unordered_map<int, const Segment *> segment_dict;
+    std::unordered_map<long, const Segment *> segment_dict;
     for (const Segment &segment : segments) {
         segment_dict[segment.id] = &segment;
     }
 
-    std::unordered_map<int, std::vector<int>> overlap_dict;
+    std::unordered_map<long, std::vector<long>> overlap_dict;
 
     for (const Segment &segment : segments) {
-        std::vector<int> overlap_ids;
-        int current_id = segment.id;
+        std::vector<long> overlap_ids;
+        long current_id = segment.id;
         const Segment *current = &segment;
-        while (current->parent_id != current->id) {
+        while ((current->parent_id != current->id) &&
+               (segment_dict.find(current->parent_id) != segment_dict.end()))
+        {
             overlap_ids.push_back(current->parent_id);
             current = segment_dict[current->parent_id];
         }

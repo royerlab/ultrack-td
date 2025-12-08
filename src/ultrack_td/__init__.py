@@ -12,6 +12,9 @@ from tracksdata.utils._logging import LOG
 
 from .ultrack_td_ext import compute_segmentation_hypotheses, overlap_dict_from_segments
 
+import logging
+LOG.setLevel(logging.INFO)
+
 
 class UltrackMultiHypotheses(BaseNodesOperator):
     _default_attr_keys = ["bbox", "z", "y", "x", "num_pixels"]
@@ -57,8 +60,9 @@ class UltrackMultiHypotheses(BaseNodesOperator):
             sequence=time_points,
             desc="Adding region properties nodes",
         ):
+            old_ids = [n.pop("tmp_id") for n in nodes_data]
             node_ids = graph.bulk_add_nodes(nodes_data)
-            id_map = {node_id: i for i, node_id in enumerate(node_ids)}
+            id_map = dict(zip(old_ids, node_ids, strict=True))
             overlaps = [
                 (id_map[n_id], id_map[o_id])
                 for n_id, overlaps in overlap_dict.items()
@@ -91,6 +95,8 @@ class UltrackMultiHypotheses(BaseNodesOperator):
         if foreground.ndim != 3:
             raise ValueError(f"Foreground and contours must be 3D. Got {foreground.ndim}D array")
 
+        LOG.info("Computing segmentation hypotheses for time point %d", t)
+
         hypotheses = compute_segmentation_hypotheses(
             foreground=foreground,
             contours=contours,
@@ -99,10 +105,13 @@ class UltrackMultiHypotheses(BaseNodesOperator):
             min_frontier=self._min_frontier,
         )
 
+        LOG.info("Found %d hypotheses for time point %d", len(hypotheses), t)
+
         for segm in hypotheses:
             attrs = {
                 key: getattr(segm, key) for key in self._default_attr_keys
             }
+            attrs["tmp_id"] = segm.id
             attrs[td.DEFAULT_ATTR_KEYS.T] = t
             attrs[td.DEFAULT_ATTR_KEYS.MASK] = Mask(segm.mask, segm.bbox)
             nodes_data.append(attrs)
@@ -112,5 +121,7 @@ class UltrackMultiHypotheses(BaseNodesOperator):
             overlap_dict = {}
         else:
             overlap_dict = overlap_dict_from_segments(hypotheses)
+
+        LOG.info("Found %d overlaps for time point %d", len(overlap_dict), t)
 
         return nodes_data, overlap_dict
