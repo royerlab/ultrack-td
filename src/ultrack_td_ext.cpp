@@ -1,6 +1,7 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/vector.h>
+#include <nanobind/stl/unordered_map.h>
 #include "ultrack.h"
 
 namespace nb = nanobind;
@@ -8,7 +9,6 @@ namespace nb = nanobind;
 using namespace nb::literals;
 
 NB_MODULE(ultrack_td_ext, m) {
-    m.doc() = "This is a \"hello world\" example with nanobind";
     nb::class_<Segment>(m, "Segment")
     .def(nb::init<nb::ndarray<nb::numpy, bool>, nb::ndarray<nb::numpy, int>, int, int, int>())
     .def_prop_ro("mask", [](const Segment &s) -> nb::ndarray<nb::numpy, bool> { return s.mask; }, nb::rv_policy::reference)
@@ -21,5 +21,6 @@ NB_MODULE(ultrack_td_ext, m) {
     .def_ro("parent_id", &Segment::parent_id);
 
     m.def("compute_segmentation_hypotheses", compute_segmentation_hypotheses<float>, "foreground"_a, "contours"_a, "min_num_pixels"_a, "max_num_pixels"_a, "min_frontier"_a);
-    // TODO other types
+
+    m.def("overlap_dict_from_segments", overlap_dict_from_segments, "segments"_a);
 }

@@ -1,4 +1,5 @@
 #include <cfloat>
+#include <unordered_map>
 #include <vector>
 #include <algorithm>
 #include <cstring>
@@ -436,4 +437,29 @@ std::vector<Segment> compute_segmentation_hypotheses(
 
     delete[] seen_data;
     return segments;
+}
+
+
+std::unordered_map<int, std::vector<int>> overlap_dict_from_segments(
+    const std::vector<Segment> &segments
+) {
+    std::unordered_map<int, const Segment *> segment_dict;
+    for (const Segment &segment : segments) {
+        segment_dict[segment.id] = &segment;
+    }
+
+    std::unordered_map<int, std::vector<int>> overlap_dict;
+
+    for (const Segment &segment : segments) {
+        std::vector<int> overlap_ids;
+        int current_id = segment.id;
+        const Segment *current = &segment;
+        while (current->parent_id != current->id) {
+            overlap_ids.push_back(current->parent_id);
+            current = segment_dict[current->parent_id];
+        }
+        overlap_dict.insert({current_id, overlap_ids});
+    }
+
+    return overlap_dict;
 }
