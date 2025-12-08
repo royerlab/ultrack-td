@@ -21,12 +21,15 @@ struct Segment {
     int z;
     int y;
     int x;
+    int id;
+    int parent_id;
 
     static Segment from_visited_and_bbox(
         const std::vector<int>& visited,
         int min_z, int min_y, int min_x,
         int max_z, int max_y, int max_x,
-        int depth, int height, int width
+        int depth, int height, int width,
+        int id = -1, int parent_id = -1
     ) {
         size_t mask_depth = max_z - min_z + 1;
         size_t mask_height = max_y - min_y + 1;
@@ -61,12 +64,15 @@ struct Segment {
             .z = min_z,
             .y = min_y,
             .x = min_x,
+            .id = id,
+            .parent_id = parent_id,
         };
     }
 
     static Segment from_visited(
         const std::vector<int> &visited,
-        int depth, int height, int width
+        int depth, int height, int width,
+        int id = -1, int parent_id = -1
     ) {
         int min_z = depth - 1;
         int min_y = height - 1;
@@ -88,7 +94,8 @@ struct Segment {
         return Segment::from_visited_and_bbox(
             visited, min_z, min_y, min_x,
             max_z, max_y, max_x,
-            depth, height, width
+            depth, height, width,
+            id, parent_id
         );
     }
 };
@@ -110,6 +117,7 @@ std::vector<size_t> argsort(const std::vector<T> &array)
 
 int _update_minima(
     int i,
+    float parent_weight,
     std::vector<int> &minima,
     BinaryTree &tree
 ) {
@@ -120,16 +128,7 @@ int _update_minima(
         return 0;
 
     if (minima.at(i) == 0) {
-        int p = tree.parent(i);
-        minima.at(i) = (tree.weight(i) < tree.weight(p)) ? 1 : 0;
-
-        if (minima.at(i) != 0) {
-            std::cout << "i: " << i << std::endl;
-            std::cout << "p: " << tree.parent(i) << std::endl;
-            std::cout << "minima.at(i): " << minima.at(i) << std::endl;
-            std::cout << "tree.weight(i): " << tree.weight(i) << std::endl;
-            std::cout << "tree.weight(p): " << tree.weight(tree.parent(i)) << std::endl;
-        }
+        minima.at(i) = (tree.weight(i) < parent_weight) ? 1 : 0;
     }
     return minima.at(i);
 }
@@ -156,14 +155,17 @@ int hierarchical_watershed(
     std::vector<int> local_edges = bimap.apply_backward(edges);
 
     int num_segments = 0;
+    int num_leaves = visited.size();
+    int num_nodes = 2 * visited.size() - 1;
+
     BinaryTree tree(visited.size());
     UnionFind uf(visited.size());
 
-    std::vector<int> areas(2 * visited.size() - 1, 0);
-    std::fill(areas.begin(), areas.begin() + visited.size(), 1);
+    std::vector<int> areas(num_nodes, 0);
+    std::fill(areas.begin(), areas.begin() + num_leaves, 1);
     
-    std::vector<int> mst_edges(2 * visited.size() - 2, -1);
-    std::vector<float> mst_weights(visited.size() - 1, 0.0f);
+    std::vector<int> mst_edges(num_nodes - 1, -1);
+    std::vector<float> mst_weights(num_nodes - num_leaves, 0.0f);
 
     for (size_t i = 0; i < sorted_indices.size(); i++)
     {
@@ -195,7 +197,7 @@ int hierarchical_watershed(
 
     std::fill(areas.begin(), areas.begin() + visited.size(), 1);
 
-    for (int i = visited.size(); i < 2 * visited.size() - 2; i++)
+    for (int i = num_leaves; i < num_nodes - 1; i++)
     { // skipping root on purpose
         if (fabs(tree.weight(i) - tree.weight(tree.parent(i))) < FLT_EPSILON)
         {
@@ -208,7 +210,7 @@ int hierarchical_watershed(
 
 
     // mst edges are the minimum of the attributes of the two children
-    for (int i = 2 * visited.size() - 2; i >= visited.size(); i--)
+    for (int i = num_nodes - 1; i >= num_leaves; i--)
     {
         areas.at(i) = std::min(areas.at(tree.left_child(i)), areas.at(tree.right_child(i)));
     }
@@ -216,7 +218,7 @@ int hierarchical_watershed(
     std::vector<int> sliced_areas(areas.begin() + visited.size(), areas.end());
 
     sorted_indices = argsort(sliced_areas);
-    std::vector<int> minima(2 * visited.size() - 1, 0);
+    std::vector<int> minima(num_nodes, 0);
 
     // resetting data structures for the second pass
     tree = BinaryTree(visited.size());
@@ -236,56 +238,61 @@ int hierarchical_watershed(
         int size_u = uf.get_size(c_u);
         int size_v = uf.get_size(c_v);
 
-        int c_new = uf.unite(c_u, c_v);
-
         int t_u = c_to_tree_idx.at(c_u);
         int t_v = c_to_tree_idx.at(c_v);
 
-        int t_new = tree.add_node(t_u, t_v, sliced_areas.at(idx));
-        c_to_tree_idx.at(c_new) = t_new;
+        float parent_weight = sliced_areas.at(idx);
+        int min_u = _update_minima(t_u, parent_weight, minima, tree);
+        int min_v = _update_minima(t_v, parent_weight, minima, tree);
 
-        // evaluating if it's a watershed
-        int min_u = _update_minima(t_u, minima, tree);
-        int min_v = _update_minima(t_v, minima, tree);
+        bool is_watershed = min_u > 0 && min_v > 0;
 
-        bool is_root = t_new == 2 * visited.size() - 2;
+        int size_new = size_u + size_v;
+        int t_new = tree.add_node(t_u, t_v, parent_weight);
 
         minima.at(t_new) = min_u + min_v;
-        if ((min_u > 0 && min_v > 0) || is_root) // it's a watershed
+
+        if (is_watershed)
         {
-            std::cout << "--------------------------------" << std::endl;
-            std::cout << "Found watershed: " << t_new << std::endl;
-            std::cout << "mst_weights.at(idx): " << mst_weights.at(idx) << std::endl;
-            std::cout << "min_frontier: " << min_frontier << std::endl;
-            std::cout << "min_u: " << min_u << std::endl;
-            std::cout << "min_v: " << min_v << std::endl;
-            std::cout << "areas.at(t_new): " << areas.at(idx + visited.size()) << std::endl;
-            std::cout << "areas.at(t_u): " << areas.at(u) << std::endl;
-            std::cout << "areas.at(t_v): " << areas.at(v) << std::endl;
-            std::cout << "minima.at(t_new): " << minima.at(t_new) << std::endl;
+            bool merge_exceeds_size = size_new >= max_num_pixels && (size_u < max_num_pixels || size_v < max_num_pixels);
 
-            if (mst_weights.at(idx) < min_frontier) continue;
+            if (mst_weights.at(idx) < min_frontier && !merge_exceeds_size) continue;
 
-            int size = uf.get_size(c_new);
-            if (
-                size_u > min_num_pixels && size_v > min_num_pixels &&
-                size > min_num_pixels && size < max_num_pixels
-            ) {
-                std::vector<int> local_component = uf.get_component(c_new);
-                std::vector<int> component = bimap.apply_forward(local_component);
+            if (size_u >= min_num_pixels && size_u < max_num_pixels &&
+                size_v >= min_num_pixels && size_v < max_num_pixels)
+            {
+                for (int c : {c_u, c_v})
+                {
+                    int t_id = c_to_tree_idx.at(c);
+                    std::vector<int> local_component = uf.get_component(c);
+                    std::vector<int> component = bimap.apply_forward(local_component);
+                    segments.push_back(
+                        Segment::from_visited(
+                            component, depth, height, width,
+                            t_id, t_new
+                        )
+                    );
 
-                segments.push_back(
-                    Segment::from_visited(
-                        component, depth, height, width
-                    )
-                );
-                std::cout << "Found segment with " << component.size() << " pixels" << std::endl;
-                num_segments++;
+                    num_segments++;
+                }
             }
         }
+
+        // finishing merging the two components
+        int c_new = uf.unite(c_u, c_v);
+        c_to_tree_idx.at(c_new) = t_new;
     }
 
-    std::cout << num_segments << std::endl;
+    if (visited.size() < max_num_pixels || num_segments == 0)
+    {
+        segments.push_back(
+            Segment::from_visited(
+                visited, depth, height, width,
+                num_nodes - 1, -1
+            )
+        );
+        num_segments++;
+    }
 
     return num_segments;
 }
@@ -379,16 +386,6 @@ void compute_connected_components(
         min_num_pixels, max_num_pixels, min_frontier,
         depth, height, width
     );
-
-    if (num_segments == 0) {
-        segments.push_back(
-            Segment::from_visited_and_bbox(
-                visited, min_z, min_y, min_x,
-                max_z, max_y, max_x, depth, height, width
-            )
-        );
-    }
-    std::cout << "num_visited: " << visited.size() << std::endl;
 }
 
 
