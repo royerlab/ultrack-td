@@ -288,7 +288,7 @@ int hierarchical_watershed(
         segments.push_back(
             Segment::from_visited(
                 visited, depth, height, width,
-                num_nodes - 1, -1
+                num_nodes - 1, num_nodes - 1
             )
         );
         num_segments++;
@@ -408,6 +408,7 @@ std::vector<Segment> compute_segmentation_hypotheses(
     T *ctr_data = contours.data();
 
     std::vector<Segment> segments;
+    int id_offset = 0;
 
     for (int z = 0; z < depth; z++) {
         int z_step = z * height * width;
@@ -421,6 +422,13 @@ std::vector<Segment> compute_segmentation_hypotheses(
                         depth, height, width,
                         min_num_pixels, max_num_pixels, min_frontier, idx
                     );
+                    int max_id = 0;
+                    for (Segment &segment : segments) {
+                        segment.id += id_offset;
+                        segment.parent_id += id_offset;
+                        max_id = std::max(max_id, segment.id);
+                    }
+                    id_offset = max_id + 1;
                 }
             }
         }
