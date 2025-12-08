@@ -16,7 +16,9 @@ NB_MODULE(ultrack_td_ext, m) {
     .def_ro("num_pixels", &Segment::num_pixels)
     .def_ro("z", &Segment::z)
     .def_ro("y", &Segment::y)
-    .def_ro("x", &Segment::x);
+    .def_ro("x", &Segment::x)
+    .def_ro("id", &Segment::id)
+    .def_ro("parent_id", &Segment::parent_id);
 
     m.def("compute_segmentation_hypotheses", compute_segmentation_hypotheses<float>, "foreground"_a, "contours"_a, "min_num_pixels"_a, "max_num_pixels"_a, "min_frontier"_a);
     // TODO other types
