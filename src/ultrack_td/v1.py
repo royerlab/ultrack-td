@@ -36,9 +36,9 @@ def _validate_config(config: MainConfig) -> None:
 
 
 def track(
+    *,
     graph: td.graph.BaseGraph,
     config: MainConfig,
-    *,
     labels: Optional[ArrayLike] = None,
     sigma: Optional[Union[Sequence[float], float]] = None,
     foreground: Optional[ArrayLike] = None,
@@ -113,6 +113,11 @@ def track(
     elif foreground is None or contours is None:
         raise ValueError(
             "Both `foreground` and `contours` must be supplied when not using `labels`."
+        )
+    
+    if foreground.dtype != bool:
+        raise ValueError(
+            f"Unlike `ultrack`, we require `foreground` to be a boolean array. Got `{foreground.dtype}`."
         )
     
     UltrackMultiHypotheses(
