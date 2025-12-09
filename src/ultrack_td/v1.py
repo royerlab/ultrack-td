@@ -139,6 +139,8 @@ def track(
         )
         # updating the spatial columns to the scaled ones
         spatial_cols = [f"{c}_scaled" for c in spatial_cols]
+        for c in spatial_cols:
+            graph.add_node_attr_key(c, -1.0)
         graph.update_node_attrs(
             attrs=node_attrs.select(*spatial_cols).to_dict(as_series=False),
             node_ids=node_attrs[td.DEFAULT_ATTR_KEYS.NODE_ID],

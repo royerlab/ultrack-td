@@ -58,7 +58,7 @@ class UltrackMultiHypotheses(BaseNodesOperator):
         for nodes_data, overlap_dict in multiprocessing_apply(
             func=partial(self._nodes_per_time, foreground=foreground, contours=contours),
             sequence=time_points,
-            desc="Adding region properties nodes",
+            desc="Adding segmentation hypotheses",
         ):
             old_ids = [n.pop("tmp_id") for n in nodes_data]
             node_ids = graph.bulk_add_nodes(nodes_data)
