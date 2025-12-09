@@ -12,9 +12,6 @@ from tracksdata.utils._logging import LOG
 
 from .ultrack_td_ext import compute_segmentation_hypotheses, overlap_dict_from_segments
 
-import logging
-LOG.setLevel(logging.INFO)
-
 
 class UltrackMultiHypotheses(BaseNodesOperator):
     _default_attr_keys = ["bbox", "z", "y", "x", "num_pixels"]
