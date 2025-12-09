@@ -198,9 +198,6 @@ int hierarchical_watershed(
         mst_weights[mst_idx] = weights[idx]; // TODO: is this really necessary
     }
 
-
-    std::fill(areas.begin(), areas.begin() + visited.size(), 1);
-
     // Tolerance for comparing floating-point weights
     // Since weights are averaged from contour data, we need a reasonable tolerance
     constexpr float WEIGHT_TOLERANCE = 1e-6f;
