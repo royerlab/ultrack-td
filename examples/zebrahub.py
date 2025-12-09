@@ -1,5 +1,6 @@
 import napari
 import numpy as np
+import dask.array as da
 import tracksdata as td
 from rich import print
 
@@ -38,7 +39,7 @@ def main() -> None:
     image = img_layer.data[0]
     image = image[start_idx:(start_idx + 10)]  # processing only a subset of time points
 
-    foreground = create_zarr(image.shape, np.uint8, store_or_path="detection.zarr", overwrite=True)
+    foreground = create_zarr(image.shape, bool, store_or_path="detection.zarr", overwrite=True)
     array_apply(
         image,
         out_array=foreground,
@@ -57,7 +58,7 @@ def main() -> None:
 
     viewer.add_image(contours, visible=False, translate=(start_idx, 0, 0, 0), scale=voxel_size)
     viewer.add_labels(
-        foreground,
+        da.from_zarr(foreground).astype(np.uint8),  # casting because of napari
         visible=True,
         translate=(start_idx, 0, 0, 0),
         scale=voxel_size,
