@@ -205,6 +205,7 @@ int hierarchical_watershed(
     // Since weights are averaged from contour data, we need a reasonable tolerance
     constexpr float WEIGHT_TOLERANCE = 1e-6f;
 
+    // eliminating difference between flat zones
     for (int i = num_leaves; i < num_nodes - 1; i++)
     { // skipping root on purpose
         if (fabs(tree.weight(i) - tree.weight(tree.parent(i))) <= WEIGHT_TOLERANCE)
