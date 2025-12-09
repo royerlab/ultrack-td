@@ -20,7 +20,10 @@ class UltrackMultiHypotheses(BaseNodesOperator):
     _default_attr_keys = ["bbox", "z", "y", "x", "num_pixels"]
 
     def __init__(
-        self, min_num_pixels: int, max_num_pixels: int, min_frontier: float,
+        self,
+        min_num_pixels: int,
+        max_num_pixels: int,
+        min_frontier: float = float("-inf"),
     ) -> None:
         super().__init__()
         self._min_num_pixels = min_num_pixels

@@ -115,6 +115,11 @@ def track(
             "Both `foreground` and `contours` must be supplied when not using `labels`."
         )
     
+    if foreground.dtype != bool:
+        raise ValueError(
+            f"Unlike `ultrack`, we require `foreground` to be a boolean array. Got `{foreground.dtype}`."
+        )
+    
     UltrackMultiHypotheses(
         min_num_pixels=config.segmentation_config.min_area,
         max_num_pixels=config.segmentation_config.max_area,
