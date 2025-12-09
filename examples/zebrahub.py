@@ -66,7 +66,8 @@ def main() -> None:
     graph = td.graph.InMemoryGraph()
 
     track(
-        config,
+        graph=graph,
+        config=config,
         foreground=foreground,
         contours=contours,
         scale=voxel_size,

@@ -36,9 +36,9 @@ def _validate_config(config: MainConfig) -> None:
 
 
 def track(
+    *,
     graph: td.graph.BaseGraph,
     config: MainConfig,
-    *,
     labels: Optional[ArrayLike] = None,
     sigma: Optional[Union[Sequence[float], float]] = None,
     foreground: Optional[ArrayLike] = None,
