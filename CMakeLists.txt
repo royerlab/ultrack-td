@@ -33,6 +33,60 @@ find_package(Python 3.8
 # Import nanobind through CMake's find_package mechanism
 find_package(nanobind CONFIG REQUIRED)
 
+# Set C++ standard
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Enable optimizations for Release builds
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif()
+
+# Detect if we're building wheels for distribution
+# cibuildwheel sets CIBUILDWHEEL, other CI systems set CI
+set(IS_DISTRIBUTION_BUILD OFF)
+if(DEFINED ENV{CIBUILDWHEEL} OR DEFINED ENV{CI} OR DEFINED ENV{GITHUB_ACTIONS})
+  set(IS_DISTRIBUTION_BUILD ON)
+  message(STATUS "Detected distribution build - using portable optimizations")
+else()
+  message(STATUS "Detected local build - using native optimizations")
+endif()
+
+# Compiler-specific optimization flags
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
+  add_compile_options(
+    -O2                    # Good optimization level
+    -DNDEBUG              # Disable assertions
+  )
+
+  # Use native optimizations only for local builds
+  if(NOT IS_DISTRIBUTION_BUILD)
+    add_compile_options(
+      -march=native        # Optimize for the current CPU architecture
+      -ffast-math         # Enable fast math optimizations
+    )
+    message(STATUS "Enabled -march=native and -ffast-math for local build")
+  else()
+    message(STATUS "Using portable build settings for distribution")
+  endif()
+
+elseif(MSVC)
+  add_compile_options(
+    /O2                    # Maximum optimization
+    /DNDEBUG              # Disable assertions
+  )
+
+  if(NOT IS_DISTRIBUTION_BUILD)
+    add_compile_options(
+      /arch:AVX2          # Enable AVX2 instructions
+      /fp:fast            # Fast floating-point model
+    )
+    message(STATUS "Enabled AVX2 and fast-math for local build")
+  else()
+    message(STATUS "Using portable build settings for distribution")
+  endif()
+endif()
+
 # We are now ready to compile the actual extension module
 nanobind_add_module(
   # Name of the extension
@@ -53,6 +107,11 @@ nanobind_add_module(
 
   # Source code goes here
   src/ultrack_td_ext.cpp
+)
+
+# Enable link-time optimization (LTO) for better performance
+set_target_properties(ultrack_td_ext PROPERTIES
+  INTERPROCEDURAL_OPTIMIZATION TRUE
 )
 
 # Install directive for scikit-build-core
