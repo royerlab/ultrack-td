@@ -22,29 +22,30 @@ struct BinaryTree {
         std::iota(parent_.begin(), parent_.end(), 0);
     }
 
-    int left_child(int n)
+    int left_child(int n) const noexcept
     {
         int i = n - num_leaves;
         return children_[2 * i];
     }
 
-    int right_child(int n)
+    int right_child(int n) const noexcept
     {
         int i = n - num_leaves;
         return children_[2 * i + 1];
     }
 
-    int parent(int n)
+    int parent(int n) const noexcept
     {
         return parent_[n];
     }
 
-    int weight(int n)
+    // FIXME: critical, this should be float but breaks the code
+    int weight(int n) noexcept
     {
         return weight_[n - num_leaves];
     }
 
-    int add_node(int left_child, int right_child, float weight)
+    inline int add_node(int left_child, int right_child, float weight) noexcept
     {
         int p = current_node;
 

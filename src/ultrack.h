@@ -109,7 +109,7 @@ std::vector<size_t> argsort(const std::vector<T> &array)
     std::vector<size_t> indices(array.size());
     std::iota(indices.begin(), indices.end(), 0);
     std::sort(indices.begin(), indices.end(),
-              [&array](int left, int right) -> bool {
+              [&array](size_t left, size_t right) -> bool {
                   return array[left] < array[right];
               });
 
@@ -202,7 +202,7 @@ int hierarchical_watershed(
 
     for (int i = num_leaves; i < num_nodes - 1; i++)
     { // skipping root on purpose
-        if (fabs(tree.weight(i) - tree.weight(tree.parent(i))) < FLT_EPSILON)
+        if (fabs(tree.weight(i) - tree.weight(tree.parent(i))) <= std::numeric_limits<float>::epsilon())
         {
             areas[i] = std::max(
                 areas[tree.left_child(i)],
@@ -327,7 +327,7 @@ void compute_connected_components(
     std::vector<int> edges;
     std::vector<float> weights;
 
-    int offsets[18] = {
+    constexpr std::array<int, 18> offsets = {
         0, 0, 1,
         0, 1, 0,
         1, 0, 0,

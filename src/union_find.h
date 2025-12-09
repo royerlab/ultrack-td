@@ -45,7 +45,7 @@ public:
      * Uses path compression for optimization.
      * Time complexity: O(α(n)) amortized
      */
-    int find(int x) {
+    inline int find(int x) noexcept {
         if (parent[x] != x) {
             parent[x] = find(parent[x]);  // path compression
         }
@@ -58,7 +58,7 @@ public:
      * Returns true if x and y were in different sets, false otherwise.
      * Time complexity: O(α(n)) amortized
      */
-    int unite(int c_x, int c_y) {
+    inline int unite(int c_x, int c_y) noexcept {
         // Union by rank: attach smaller tree under root of deeper tree
         if (rank[c_x] > rank[c_y])
             std::swap(c_x, c_y);
@@ -87,7 +87,7 @@ public:
      * Get the size of the component containing x.
      * Time complexity: O(α(n)) amortized
      */
-    int get_size(int x) {
+    inline int get_size(int x) noexcept {
         int root = find(x);
         return size[root];
     }
@@ -144,7 +144,7 @@ public:
         component.reserve(size[root]);
 
         for (int i = 0; i < parent.size(); i++) {
-            if (find(i) == root) {
+            if (parent[i] == root || find(i) == root) {
                 component.push_back(i);
             }
         }
