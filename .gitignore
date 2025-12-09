@@ -195,3 +195,7 @@ benchmarks/outputs/*.md
 src/ultrack_td/__about__.py
 
 .vscode/
+
+# Configuration files
+examples/*.toml
+examples/*.zarr

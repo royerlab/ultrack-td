@@ -1,13 +1,24 @@
 import napari
 import numpy as np
-import dask.array as da
-from scipy.ndimage import gaussian_filter
 import tracksdata as td
+from rich import print
 
-from ultrack_td import UltrackMultiHypotheses
+from ultrack_td.v1 import track
+from ultrack.config import load_config
+from ultrack.imgproc import robust_invert, detect_foreground
+from ultrack.utils.array import array_apply, create_zarr
 
 
 def main() -> None:
+    """
+    This is an example how the tracksdata implementation is compatible with the original `ultrack` API
+    Through the `ultrack_td.v1.track` module.
+
+    For reference, the original `ultrack` example is available at:
+    https://github.com/royerlab/ultrack/blob/main/examples/zebrahub/zebrahub.ipynb
+    """
+    config = load_config("config.toml")
+    print(config)
 
     viewer = napari.Viewer()
     viewer.window.resize(1800, 1000)
@@ -20,51 +31,53 @@ def main() -> None:
         contrast_limits=(0, 500),
     )
 
-    scale_idx = 0
-    n_timepoints = 5
+    voxel_size = img_layer.scale[1:]  # (z, y, x) pixel size
+    start_idx = 400  # starting frame
+    viewer.dims.set_point(0, start_idx + 5)
 
-    scale = np.asarray([1, *[s * 2 ** scale_idx for s in img_layer.scale[-3:]]])
+    image = img_layer.data[0]
+    image = image[start_idx:(start_idx + 10)]  # processing only a subset of time points
 
-    img = img_layer.data[scale_idx]
-    img = da.rechunk(img, chunks=(1, *img.shape[1:]))
-    img = img.map_blocks(gaussian_filter, sigma=(2 / scale), dtype=np.float32)
+    foreground = create_zarr(image.shape, bool, store_or_path="detection.zarr", overwrite=True)
+    array_apply(
+        image,
+        out_array=foreground,
+        func=detect_foreground,
+        sigma=25.0,
+        voxel_size=voxel_size,
+    )
 
-    local_data = img[:n_timepoints].compute()
+    contours = create_zarr(image.shape, np.float16, store_or_path="boundaries.zarr", overwrite=True)
+    array_apply(
+        image,
+        out_array=contours,
+        func=robust_invert,
+        voxel_size=voxel_size,
+    )
 
-    foreground = local_data > 10
-    contours = -local_data + local_data.max()
+    viewer.add_image(contours, visible=False, translate=(start_idx, 0, 0, 0), scale=voxel_size)
+    viewer.add_labels(
+        foreground,
+        visible=True,
+        translate=(start_idx, 0, 0, 0),
+        scale=voxel_size,
+    ).contour = 2
 
     graph = td.graph.InMemoryGraph()
 
-    UltrackMultiHypotheses(
-        min_num_pixels=500,
-        max_num_pixels=100_000,
-        min_frontier=0.0,
-    ).add_nodes(
-        graph=graph,
+    track(
+        config,
         foreground=foreground,
         contours=contours,
+        scale=voxel_size,
     )
 
-    td.edges.DistanceEdges(
-        distance_threshold=25.0,
-        n_neighbors=5,
-    ).add_edges(graph=graph)
-
-    td.edges.IoUEdgeAttr(output_key="iou").add_edge_attrs(graph=graph)
-
-    solution = td.solvers.ILPSolver(
-        edge_weight=-td.EdgeAttr("iou").pow(4),
-        appearance_weight=0.002,
-        disappearance_weight=0.01,
-        division_weight=0.001,
-    ).solve(graph=graph)
+    solution_graph = graph.filter(td.NodeAttr("solution") == True, td.EdgeAttr("solution") == True)
 
     tracks_df, tracks_graph, segms = td.functional.to_napari_format(
-        solution, shape=local_data.shape, solution_key=None, mask_key=td.DEFAULT_ATTR_KEYS.MASK,
+        solution_graph, shape=image.shape, solution_key=None, mask_key=td.DEFAULT_ATTR_KEYS.MASK,
     )
 
-    viewer.add_image(local_data, blending="additive", colormap="magenta", scale=scale)
     viewer.add_tracks(tracks_df, graph=tracks_graph)
     viewer.add_labels(segms, opacity=0.5)
 
