@@ -38,7 +38,7 @@ def main() -> None:
     image = img_layer.data[0]
     image = image[start_idx:(start_idx + 10)]  # processing only a subset of time points
 
-    foreground = create_zarr(image.shape, bool, store_or_path="detection.zarr", overwrite=True)
+    foreground = create_zarr(image.shape, np.uint8, store_or_path="detection.zarr", overwrite=True)
     array_apply(
         image,
         out_array=foreground,
