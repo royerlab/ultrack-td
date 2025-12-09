@@ -117,11 +117,12 @@ std::vector<size_t> argsort(const std::vector<T> &array)
 }
 
 
+template <typename WeightType>
 int _update_minima(
     int i,
-    float parent_weight,
+    WeightType parent_weight,
     std::vector<int> &minima,
-    BinaryTree &tree
+    BinaryTree<WeightType> &tree
 ) {
     /*
     Assigns minima depending on the change in weight between the current node and its parent.
@@ -161,7 +162,7 @@ int hierarchical_watershed(
     int num_leaves = visited.size();
     int num_nodes = 2 * visited.size() - 1;
 
-    BinaryTree tree(visited.size());
+    BinaryTree<float> tree(visited.size());
     UnionFind uf(visited.size());
 
     std::vector<int> areas(num_nodes, 0);
@@ -200,9 +201,13 @@ int hierarchical_watershed(
 
     std::fill(areas.begin(), areas.begin() + visited.size(), 1);
 
+    // Tolerance for comparing floating-point weights
+    // Since weights are averaged from contour data, we need a reasonable tolerance
+    constexpr float WEIGHT_TOLERANCE = 1e-6f;
+
     for (int i = num_leaves; i < num_nodes - 1; i++)
     { // skipping root on purpose
-        if (fabs(tree.weight(i) - tree.weight(tree.parent(i))) <= std::numeric_limits<float>::epsilon())
+        if (fabs(tree.weight(i) - tree.weight(tree.parent(i))) <= WEIGHT_TOLERANCE)
         {
             areas[i] = std::max(
                 areas[tree.left_child(i)],
@@ -223,10 +228,9 @@ int hierarchical_watershed(
     std::vector<int> minima(num_nodes, 0);
 
     // resetting data structures for the second pass
-    tree = BinaryTree(visited.size());
+    BinaryTree<int> area_tree(visited.size());
     uf = UnionFind(visited.size());
     std::iota(c_to_tree_idx.begin(), c_to_tree_idx.end(), 0);
-
 
     CountingMap<long> id_map(*id_offset_ptr);
 
@@ -246,14 +250,14 @@ int hierarchical_watershed(
         int t_u = c_to_tree_idx[c_u];
         int t_v = c_to_tree_idx[c_v];
 
-        float parent_weight = sliced_areas[idx];
-        int min_u = _update_minima(t_u, parent_weight, minima, tree);
-        int min_v = _update_minima(t_v, parent_weight, minima, tree);
+        int parent_weight = sliced_areas[idx];
+        int min_u = _update_minima(t_u, parent_weight, minima, area_tree);
+        int min_v = _update_minima(t_v, parent_weight, minima, area_tree);
 
         bool is_watershed = min_u > 0 && min_v > 0;
 
         int size_new = size_u + size_v;
-        int t_new = tree.add_node(t_u, t_v, parent_weight);
+        int t_new = area_tree.add_node(t_u, t_v, parent_weight);
 
         minima[t_new] = min_u + min_v;
 
