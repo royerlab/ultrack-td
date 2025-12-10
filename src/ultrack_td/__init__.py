@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Any, override
+from typing import Any
 
 import numpy as np
 import tracksdata as td
@@ -9,6 +9,7 @@ from tracksdata.nodes._base_nodes import BaseNodesOperator
 from tracksdata.nodes._mask import Mask
 from tracksdata.utils._logging import LOG
 from tracksdata.utils._multiprocessing import multiprocessing_apply
+from typing_extensions import override
 
 from ultrack_td.ultrack_td_ext import (
     compute_segmentation_hypotheses_double,
