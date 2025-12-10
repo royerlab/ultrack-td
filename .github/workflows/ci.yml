@@ -53,6 +53,10 @@ jobs:
       run: |
         echo "MACOSX_DEPLOYMENT_TARGET=10.14" >> $GITHUB_ENV
 
+    - name: Set up MSVC (Windows)
+      if: runner.os == 'Windows'
+      uses: ilammy/msvc-dev-cmd@v1
+
     - name: Install dependencies and build
       run: |
         python -m pip install --upgrade pip setuptools wheel
