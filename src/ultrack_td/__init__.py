@@ -1,17 +1,28 @@
-from typing import override, Any
 from functools import partial
+from typing import Any, override
 
-import tracksdata as td
 import numpy as np
+import tracksdata as td
 from numpy.typing import NDArray
-from tracksdata.nodes._mask import Mask
 from tracksdata.graph import BaseGraph
 from tracksdata.nodes._base_nodes import BaseNodesOperator
-from tracksdata.utils._multiprocessing import multiprocessing_apply
+from tracksdata.nodes._mask import Mask
 from tracksdata.utils._logging import LOG
+from tracksdata.utils._multiprocessing import multiprocessing_apply
 
-from .ultrack_td_ext import compute_segmentation_hypotheses_float, compute_segmentation_hypotheses_double, compute_segmentation_hypotheses_int_8, compute_segmentation_hypotheses_int_16, compute_segmentation_hypotheses_int_32, compute_segmentation_hypotheses_int, compute_segmentation_hypotheses_uint_8, compute_segmentation_hypotheses_uint_16, compute_segmentation_hypotheses_uint_32, compute_segmentation_hypotheses_uint, overlap_dict_from_segments
-
+from ultrack_td.ultrack_td_ext import (
+    compute_segmentation_hypotheses_double,
+    compute_segmentation_hypotheses_float,
+    compute_segmentation_hypotheses_int,
+    compute_segmentation_hypotheses_int_8,
+    compute_segmentation_hypotheses_int_16,
+    compute_segmentation_hypotheses_int_32,
+    compute_segmentation_hypotheses_uint,
+    compute_segmentation_hypotheses_uint_8,
+    compute_segmentation_hypotheses_uint_16,
+    compute_segmentation_hypotheses_uint_32,
+    overlap_dict_from_segments,
+)
 
 _compute_segmentation_hypotheses_funcs = {
     np.float32: compute_segmentation_hypotheses_float,
@@ -26,6 +37,7 @@ _compute_segmentation_hypotheses_funcs = {
     np.uint64: compute_segmentation_hypotheses_uint,
     np.uint: compute_segmentation_hypotheses_uint,
 }
+
 
 def compute_segmentation_hypotheses(
     foreground: NDArray[np.bool_],
@@ -60,13 +72,17 @@ def compute_segmentation_hypotheses(
         raise ValueError(f"min_num_pixels must be greater than or equal to 0. Got {min_num_pixels}")
 
     if max_num_pixels < min_num_pixels:
-        raise ValueError(f"max_num_pixels must be greater than or equal to min_num_pixels. Got {max_num_pixels} and {min_num_pixels}")
+        raise ValueError(
+            f"max_num_pixels must be greater than or equal to min_num_pixels. Got {max_num_pixels} and {min_num_pixels}"
+        )
 
     dtype = contours.dtype
     try:
         compute_segmentation_hypotheses_func = _compute_segmentation_hypotheses_funcs[dtype.type]
-    except KeyError:
-        raise ValueError(f"Unsupported dtype: {dtype.type}. Expected one of {list(_compute_segmentation_hypotheses_funcs.keys())}")
+    except KeyError as e:
+        raise ValueError(
+            f"Unsupported dtype: {dtype.type}. Expected one of {list(_compute_segmentation_hypotheses_funcs.keys())}"
+        ) from e
 
     return compute_segmentation_hypotheses_func(
         foreground=foreground,
@@ -78,7 +94,7 @@ def compute_segmentation_hypotheses(
 
 
 class UltrackMultiHypotheses(BaseNodesOperator):
-    _default_attr_keys = ["bbox", "z", "y", "x", "num_pixels"]
+    _default_attr_keys = ("bbox", "z", "y", "x", "num_pixels")
 
     def __init__(
         self,
@@ -90,7 +106,7 @@ class UltrackMultiHypotheses(BaseNodesOperator):
         self._min_num_pixels = min_num_pixels
         self._max_num_pixels = max_num_pixels
         self._min_frontier = min_frontier
-    
+
     def _init_node_attrs(self, graph: BaseGraph) -> None:
         """
         Initialize the node attributes for the segmentation hypotheses.
@@ -103,7 +119,7 @@ class UltrackMultiHypotheses(BaseNodesOperator):
         for key in self._default_attr_keys[1:]:  # skipping "bbox"
             if key not in graph.node_attr_keys:
                 graph.add_node_attr_key(key, -1.0)
-        
+
         if "bbox" not in graph.node_attr_keys:
             graph.add_node_attr_key("bbox", np.zeros(6, dtype=np.int32))
 
@@ -145,11 +161,7 @@ class UltrackMultiHypotheses(BaseNodesOperator):
             old_ids = [n.pop("tmp_id") for n in nodes_data]
             node_ids = graph.bulk_add_nodes(nodes_data)
             id_map = dict(zip(old_ids, node_ids, strict=True))
-            overlaps = [
-                (id_map[n_id], id_map[o_id])
-                for n_id, overlaps in overlap_dict.items()
-                for o_id in overlaps
-            ]
+            overlaps = [(id_map[n_id], id_map[o_id]) for n_id, overlaps in overlap_dict.items() for o_id in overlaps]
             graph.bulk_add_overlaps(overlaps=overlaps)
 
     def _nodes_per_time(
@@ -170,17 +182,20 @@ class UltrackMultiHypotheses(BaseNodesOperator):
             The foreground mask.
         contours : NDArray[np.float32]
             The contours.
-        
+
         Returns
         -------
         tuple[list[dict[str, Any]], dict[int, list[int]]]
             - The nodes data to add to the graph.
-            - The overlap dictionary, where each key is a node id and it maps to a list of all its overlaps (ancestors in the hierarchy)
+            - The overlap dictionary, where each key is a node id and it maps to a
+              list of all its overlaps (ancestors in the hierarchy)
         """
         nodes_data = []
 
         if foreground.shape != contours.shape:
-            raise ValueError(f"Foreground and contours must have the same shape. Got {foreground.shape} and {contours.shape}")
+            raise ValueError(
+                f"Foreground and contours must have the same shape. Got {foreground.shape} and {contours.shape}"
+            )
 
         foreground = np.asarray(foreground[t])
         contours = np.asarray(contours[t])
@@ -188,7 +203,7 @@ class UltrackMultiHypotheses(BaseNodesOperator):
         if foreground.ndim == 2:
             foreground = foreground[None, ...]
             contours = contours[None, ...]
-        
+
         if foreground.ndim != 3:
             raise ValueError(f"Foreground and contours must be 3D. Got {foreground.ndim}D array")
 
@@ -205,9 +220,7 @@ class UltrackMultiHypotheses(BaseNodesOperator):
         LOG.info("Found %d hypotheses for time point %d", len(hypotheses), t)
 
         for segm in hypotheses:
-            attrs = {
-                key: getattr(segm, key) for key in self._default_attr_keys
-            }
+            attrs = {key: getattr(segm, key) for key in self._default_attr_keys}
             attrs["tmp_id"] = segm.id
             attrs[td.DEFAULT_ATTR_KEYS.T] = t
             attrs[td.DEFAULT_ATTR_KEYS.MASK] = Mask(segm.mask, segm.bbox)

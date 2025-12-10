@@ -1,14 +1,13 @@
-import napari
-import zarr
-import numpy as np
 import dask.array as da
+import napari
+import numpy as np
 import tracksdata as td
 from rich import print
+from ultrack.config import load_config
+from ultrack.imgproc import detect_foreground, robust_invert
+from ultrack.utils.array import array_apply, create_zarr
 
 from ultrack_td.v1 import track
-from ultrack.config import load_config
-from ultrack.imgproc import robust_invert, detect_foreground
-from ultrack.utils.array import array_apply, create_zarr
 
 
 def main() -> None:
@@ -25,7 +24,7 @@ def main() -> None:
     viewer = napari.Viewer()
     viewer.window.resize(1800, 1000)
 
-    img_layer, = viewer.open(
+    (img_layer,) = viewer.open(
         "http://public.czbiohub.org/royerlab/zebrahub/imaging/single-objective/ZSNS001_tail.ome.zarr/",
         plugin="napari-ome-zarr",
         rendering="attenuated_mip",
@@ -38,7 +37,7 @@ def main() -> None:
     viewer.dims.set_point(0, start_idx + 5)
 
     image = img_layer.data[0]
-    image = image[start_idx:(start_idx + 1)]  # processing only a subset of time points
+    image = image[start_idx : (start_idx + 1)]  # processing only a subset of time points
     translation = (start_idx, 0, 0, 0)
 
     foreground = create_zarr(image.shape, bool, store_or_path="detection.zarr", overwrite=True)
@@ -79,7 +78,10 @@ def main() -> None:
     solution_graph = graph.filter(td.NodeAttr("solution") == True, td.EdgeAttr("solution") == True).subgraph()
 
     tracks_df, tracks_graph, segms = td.functional.to_napari_format(
-        solution_graph, shape=image.shape, solution_key=None, mask_key=td.DEFAULT_ATTR_KEYS.MASK,
+        solution_graph,
+        shape=image.shape,
+        solution_key=None,
+        mask_key=td.DEFAULT_ATTR_KEYS.MASK,
     )
 
     viewer.add_tracks(tracks_df, graph=tracks_graph, translate=translation, scale=voxel_size)

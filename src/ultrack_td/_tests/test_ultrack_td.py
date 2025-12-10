@@ -1,9 +1,11 @@
 import time
-import pytest
+
 import edt
 import napari
-import rustworkx as rx
 import numpy as np
+import pytest
+import rustworkx as rx
+
 from ultrack_td import compute_segmentation_hypotheses, overlap_dict_from_segments
 
 
@@ -18,12 +20,14 @@ def _validate_hierarchy(components) -> None:
 
     expected_hierarchy = rx.PyDiGraph()
     expected_hierarchy.add_nodes_from(range(5))
-    expected_hierarchy.add_edges_from([
-        (0, 2, None),
-        (1, 2, None),
-        (3, 4, None),
-        (2, 4, None),
-    ])
+    expected_hierarchy.add_edges_from(
+        [
+            (0, 2, None),
+            (1, 2, None),
+            (3, 4, None),
+            (2, 4, None),
+        ]
+    )
 
     assert rx.is_isomorphic(segm_hierarchy, expected_hierarchy)
 
@@ -43,7 +47,21 @@ def _validate_overlap_dict(overlap_dict: dict[int, list[int]]) -> None:
     assert seen_n_overlaps == expected_n_overlaps
 
 
-@pytest.mark.parametrize("dtype", [np.float32, np.float64, np.int8, np.int16, np.int32, np.int64, np.uint8, np.uint16, np.uint32, np.uint])
+@pytest.mark.parametrize(
+    "dtype",
+    [
+        np.float32,
+        np.float64,
+        np.int8,
+        np.int16,
+        np.int32,
+        np.int64,
+        np.uint8,
+        np.uint16,
+        np.uint32,
+        np.uint,
+    ],
+)
 def test_multi_hypotheses_overlap(
     dtype: np.dtype,
     interactive: bool = False,

@@ -26,6 +26,6 @@ public:
     }
 
 private:
-    map_type map_;    
+    map_type map_;
     Value next_value_;
 };

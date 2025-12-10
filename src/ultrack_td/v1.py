@@ -1,10 +1,12 @@
-from typing import Optional, Literal, Sequence, Union
+from collections.abc import Sequence
+from typing import Literal
 
-import tracksdata as td
 import polars as pl
+import tracksdata as td
 from numpy.typing import ArrayLike
 
 from ultrack_td import UltrackMultiHypotheses
+
 try:
     from ultrack.config import MainConfig
     from ultrack.utils import labels_to_contours
@@ -21,13 +23,13 @@ def _validate_config(config: MainConfig) -> None:
             "`ultrack_td.v1.track`'s `config.tracking_config.link_function` must be 'power'. "
             f"Found `{config.tracking_config.link_function}`."
         )
-    
+
     if config.tracking_config.image_border_size is not None:
         raise NotImplementedError(
             "`ultrack_td.v1.track`'s `config.tracking_config.image_border_size` is not supported yet.\n"
             "Please apply the shifts yourself in the tracksdata graph."
         )
-    
+
     if config.tracking_config.window_size is not None:
         raise NotImplementedError(
             "`ultrack_td.v1.track`'s `config.tracking_config.window_size` is not supported yet.\n"
@@ -39,13 +41,13 @@ def track(
     *,
     graph: td.graph.BaseGraph,
     config: MainConfig,
-    labels: Optional[ArrayLike] = None,
-    sigma: Optional[Union[Sequence[float], float]] = None,
-    foreground: Optional[ArrayLike] = None,
-    contours: Optional[ArrayLike] = None,
-    images: Sequence[ArrayLike] = tuple(),
-    scale: Optional[Sequence[float]] = None,
-    vector_field: Optional[Union[ArrayLike, Sequence[ArrayLike]]] = None,
+    labels: ArrayLike | None = None,
+    sigma: Sequence[float] | float | None = None,
+    foreground: ArrayLike | None = None,
+    contours: ArrayLike | None = None,
+    images: Sequence[ArrayLike] = (),
+    scale: Sequence[float] | None = None,
+    vector_field: ArrayLike | Sequence[ArrayLike] | None = None,
     overwrite: Literal["all", "links", "solutions", "none", bool] = "none",
 ) -> None:
     """
@@ -57,6 +59,8 @@ def track(
 
     Parameters
     ----------
+    graph : BaseGraph
+        The graph to add the tracking results to.
     config : MainConfig
         Tracking configuration parameters.
     labels : Optional[ArrayLike], optional
@@ -95,30 +99,23 @@ def track(
             "ultrack's vector field API is not supported yet.\n"
             "Please apply the shifts yourself in the tracksdata graph."
         )
-    
-    if (overwrite != "none" and overwrite != False):
+
+    if overwrite != "none" and overwrite != False:
         raise ValueError(
-            "`ultrack_td.v1.track`'s `overwrite` option must be a boolean or 'none'. "
-            f"Found `{overwrite}`."
+            f"`ultrack_td.v1.track`'s `overwrite` option must be a boolean or 'none'. Found `{overwrite}`."
         )
 
     if labels is not None and (foreground is not None or contours is not None):
-        raise ValueError(
-            "`labels` and `foreground` or `contours` cannot be supplied at the same time."
-        )
+        raise ValueError("`labels` and `foreground` or `contours` cannot be supplied at the same time.")
 
     if labels is not None:
         foreground, contours = labels_to_contours(labels, sigma=sigma)
 
     elif foreground is None or contours is None:
-        raise ValueError(
-            "Both `foreground` and `contours` must be supplied when not using `labels`."
-        )
-    
+        raise ValueError("Both `foreground` and `contours` must be supplied when not using `labels`.")
+
     if foreground.dtype != bool:
-        raise ValueError(
-            f"Unlike `ultrack`, we require `foreground` to be a boolean array. Got `{foreground.dtype}`."
-        )
+        raise ValueError(f"Unlike `ultrack`, we require `foreground` to be a boolean array. Got `{foreground.dtype}`.")
 
     UltrackMultiHypotheses(
         min_num_pixels=config.segmentation_config.min_area,
@@ -130,12 +127,11 @@ def track(
         contours=contours,
     )
 
-    spatial_cols = ["z", "y", "x"][-len(scale):]
+    spatial_cols = ["z", "y", "x"][-len(scale) :]
     if scale is not None:
         node_attrs = graph.node_attrs(attr_keys=[td.DEFAULT_ATTR_KEYS.NODE_ID, *spatial_cols])
         node_attrs = node_attrs.with_columns(
-            (pl.col(c) * s).alias(f"{c}_scaled")
-            for c, s in zip(spatial_cols, scale, strict=True)
+            (pl.col(c) * s).alias(f"{c}_scaled") for c, s in zip(spatial_cols, scale, strict=True)
         )
         # updating the spatial columns to the scaled ones
         spatial_cols = [f"{c}_scaled" for c in spatial_cols]
