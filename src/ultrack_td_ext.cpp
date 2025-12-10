@@ -29,7 +29,7 @@ NB_MODULE(ultrack_td_ext, m) {
     m.def("compute_segmentation_hypotheses_uint_8", compute_segmentation_hypotheses<uint8_t>, "foreground"_a, "contours"_a, "min_num_pixels"_a, "max_num_pixels"_a, "min_frontier"_a);
     m.def("compute_segmentation_hypotheses_uint_16", compute_segmentation_hypotheses<uint16_t>, "foreground"_a, "contours"_a, "min_num_pixels"_a, "max_num_pixels"_a, "min_frontier"_a);
     m.def("compute_segmentation_hypotheses_uint_32", compute_segmentation_hypotheses<uint32_t>, "foreground"_a, "contours"_a, "min_num_pixels"_a, "max_num_pixels"_a, "min_frontier"_a);
-    m.def("compute_segmentation_hypotheses_uint", compute_segmentation_hypotheses<uint>, "foreground"_a, "contours"_a, "min_num_pixels"_a, "max_num_pixels"_a, "min_frontier"_a);
+    m.def("compute_segmentation_hypotheses_uint", compute_segmentation_hypotheses<unsigned int>, "foreground"_a, "contours"_a, "min_num_pixels"_a, "max_num_pixels"_a, "min_frontier"_a);
 
     m.def("overlap_dict_from_segments", overlap_dict_from_segments, "segments"_a);
 }
