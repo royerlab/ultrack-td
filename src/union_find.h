@@ -20,7 +20,7 @@
  * inverse Ackermann function (practically constant for all reasonable n).
  */
 template<bool TrackComponents = false>
-class UnionFindBase {
+class UnionFind {
 private:
     std::vector<int> parent;     // parent[i] = parent of element i
     std::vector<int> rank;       // rank[i] = approximate depth of tree rooted at i
@@ -36,14 +36,14 @@ public:
     /**
      * Initialize empty union-find structure.
      */
-    UnionFindBase() : num_components(0) {}
+    UnionFind() : num_components(0) {}
 
     /**
      * Initialize with n elements in the range [0, n-1].
      * Each element starts in its own set with size 1.
      * Time complexity: O(n)
      */
-    explicit UnionFindBase(int n) :
+    explicit UnionFind(int n) :
     num_components(n), num_nodes(n),
     parent(n), rank(n, 0), size(n, 1) {
         std::iota(parent.begin(), parent.end(), 0);
@@ -191,8 +191,5 @@ public:
         }
     }
 };
-
-// Type aliases for convenience
-using UnionFind = UnionFindBase<false>;
 
 #endif // UNION_FIND_H

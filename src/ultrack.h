@@ -226,7 +226,7 @@ int hierarchical_watershed(
 
     // resetting data structures for the second pass
     BinaryTree<int> area_tree(visited.size());
-    UnionFindBase<true> uf_tracked(visited.size());  // Use component tracking for O(1) get_component
+    UnionFind<true> uf_tracked(visited.size());  // Use component tracking for O(1) get_component
     std::iota(c_to_tree_idx.begin(), c_to_tree_idx.end(), 0);
 
     CountingMap<long> id_map(*id_offset_ptr);
