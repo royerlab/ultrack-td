@@ -1,4 +1,5 @@
 import napari
+import zarr
 import numpy as np
 import dask.array as da
 import tracksdata as td
@@ -37,30 +38,33 @@ def main() -> None:
     viewer.dims.set_point(0, start_idx + 5)
 
     image = img_layer.data[0]
-    image = image[start_idx:(start_idx + 10)]  # processing only a subset of time points
+    image = image[start_idx:(start_idx + 1)]  # processing only a subset of time points
+    translation = (start_idx, 0, 0, 0)
 
-    foreground = create_zarr(image.shape, bool, store_or_path="detection.zarr", overwrite=True)
-    array_apply(
-        image,
-        out_array=foreground,
-        func=detect_foreground,
-        sigma=25.0,
-        voxel_size=voxel_size,
-    )
+    # foreground = create_zarr(image.shape, bool, store_or_path="detection.zarr", overwrite=True)
+    # array_apply(
+    #     image,
+    #     out_array=foreground,
+    #     func=detect_foreground,
+    #     sigma=25.0,
+    #     voxel_size=voxel_size,
+    # )
+    foreground = zarr.open("detection.zarr")
 
-    contours = create_zarr(image.shape, np.float16, store_or_path="boundaries.zarr", overwrite=True)
-    array_apply(
-        image,
-        out_array=contours,
-        func=robust_invert,
-        voxel_size=voxel_size,
-    )
+    # contours = create_zarr(image.shape, np.float16, store_or_path="boundaries.zarr", overwrite=True)
+    # array_apply(
+    #     image,
+    #     out_array=contours,
+    #     func=robust_invert,
+    #     voxel_size=voxel_size,
+    # )
+    contours = zarr.open("boundaries.zarr")
 
-    viewer.add_image(contours, visible=False, translate=(start_idx, 0, 0, 0), scale=voxel_size)
+    viewer.add_image(contours, visible=False, translate=translation, scale=voxel_size)
     viewer.add_labels(
         da.from_zarr(foreground).astype(np.uint8),  # casting because of napari
         visible=True,
-        translate=(start_idx, 0, 0, 0),
+        translate=translation,
         scale=voxel_size,
     ).contour = 2
 
@@ -73,15 +77,16 @@ def main() -> None:
         contours=contours,
         scale=voxel_size,
     )
+    return  # FIXME
 
-    solution_graph = graph.filter(td.NodeAttr("solution") == True, td.EdgeAttr("solution") == True)
+    solution_graph = graph.filter(td.NodeAttr("solution") == True, td.EdgeAttr("solution") == True).subgraph()
 
     tracks_df, tracks_graph, segms = td.functional.to_napari_format(
         solution_graph, shape=image.shape, solution_key=None, mask_key=td.DEFAULT_ATTR_KEYS.MASK,
     )
 
-    viewer.add_tracks(tracks_df, graph=tracks_graph)
-    viewer.add_labels(segms, opacity=0.5)
+    viewer.add_tracks(tracks_df, graph=tracks_graph, translate=translation, scale=voxel_size)
+    viewer.add_labels(segms, opacity=0.5, translate=translation, scale=voxel_size)
 
     napari.run()
 

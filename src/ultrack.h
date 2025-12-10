@@ -235,6 +235,8 @@ int hierarchical_watershed(
     for (size_t i = 0; i < sorted_indices.size(); i++)
     {
         int idx = sorted_indices[i];
+        int parent_weight = sliced_areas[idx];
+
         int u = mst_edges[idx * 2];
         int v = mst_edges[idx * 2 + 1];
 
@@ -248,11 +250,11 @@ int hierarchical_watershed(
         int t_u = c_to_tree_idx[c_u];
         int t_v = c_to_tree_idx[c_v];
 
-        int parent_weight = sliced_areas[idx];
         int min_u = _update_minima(t_u, parent_weight, minima, area_tree);
         int min_v = _update_minima(t_v, parent_weight, minima, area_tree);
 
         bool is_watershed = min_u > 0 && min_v > 0;
+        std::cout << "is_watershed: " << is_watershed << std::endl;
 
         int size_new = size_u + size_v;
         int t_new = area_tree.add_node(t_u, t_v, parent_weight);
@@ -265,23 +267,21 @@ int hierarchical_watershed(
 
             if (mst_weights[idx] < min_frontier && !merge_exceeds_size) continue;
 
-            if (size_u >= min_num_pixels && size_u < max_num_pixels &&
-                size_v >= min_num_pixels && size_v < max_num_pixels)
+            for (auto [c, size] : { std::pair{c_u, size_u}, std::pair{c_v, size_v} })
             {
-                for (int c : {c_u, c_v})
-                {
-                    int t_id = c_to_tree_idx[c];
-                    std::vector<int> local_component = uf.get_component(c);
-                    std::vector<int> component = bimap.apply_forward(local_component);
-                    segments.push_back(
-                        Segment::from_visited(
-                            component, depth, height, width,
-                            id_map.get(t_id), id_map.get(t_new)
-                        )
-                    );
+                if (size < min_num_pixels || size >= max_num_pixels) continue;
 
-                    num_segments++;
-                }
+                int t_id = c_to_tree_idx[c];
+                std::vector<int> local_component = uf.get_component(c);
+                std::vector<int> component = bimap.apply_forward(local_component);
+                segments.push_back(
+                    Segment::from_visited(
+                        component, depth, height, width,
+                        id_map.get(t_id), id_map.get(t_new)
+                    )
+                );
+
+                num_segments++;
             }
         }
 
@@ -300,6 +300,8 @@ int hierarchical_watershed(
         );
         num_segments++;
     }
+
+    std::cout << "num_segments: " << num_segments << std::endl;
 
     *id_offset_ptr = id_map.next_value();
 

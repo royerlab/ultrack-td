@@ -57,7 +57,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
   add_compile_options(
     -O2                    # Good optimization level
     -DNDEBUG              # Disable assertions
-  )
+ )
 
   # Use native optimizations only for local builds
   if(NOT IS_DISTRIBUTION_BUILD)
