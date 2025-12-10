@@ -27,7 +27,7 @@ struct Segment {
     long parent_id;
 
     static Segment from_visited_and_bbox(
-        const std::vector<int>& visited,
+        const std::vector<int> &visited,
         int min_z, int min_y, int min_x,
         int max_z, int max_y, int max_x,
         int depth, int height, int width,
@@ -112,7 +112,6 @@ std::vector<size_t> argsort(const std::vector<T> &array)
               [&array](size_t left, size_t right) -> bool {
                   return array[left] < array[right];
               });
-
     return indices;
 }
 
@@ -167,7 +166,7 @@ int hierarchical_watershed(
 
     std::vector<int> areas(num_nodes, 0);
     std::fill(areas.begin(), areas.begin() + num_leaves, 1);
-    
+
     std::vector<int> mst_edges(num_nodes - 1, -1);
     std::vector<float> mst_weights(num_nodes - num_leaves, 0.0f);
 
@@ -227,7 +226,7 @@ int hierarchical_watershed(
 
     // resetting data structures for the second pass
     BinaryTree<int> area_tree(visited.size());
-    uf = UnionFind(visited.size());
+    UnionFindBase<true> uf_tracked(visited.size());  // Use component tracking for O(1) get_component
     std::iota(c_to_tree_idx.begin(), c_to_tree_idx.end(), 0);
 
     CountingMap<long> id_map(*id_offset_ptr);
@@ -240,12 +239,12 @@ int hierarchical_watershed(
         int u = mst_edges[idx * 2];
         int v = mst_edges[idx * 2 + 1];
 
-        int c_u = uf.find(u);
-        int c_v = uf.find(v);
+        int c_u = uf_tracked.find(u);
+        int c_v = uf_tracked.find(v);
         if (c_u == c_v) continue;
 
-        int size_u = uf.get_size(c_u);
-        int size_v = uf.get_size(c_v);
+        int size_u = uf_tracked.get_size(c_u);
+        int size_v = uf_tracked.get_size(c_v);
 
         int t_u = c_to_tree_idx[c_u];
         int t_v = c_to_tree_idx[c_v];
@@ -253,27 +252,31 @@ int hierarchical_watershed(
         int min_u = _update_minima(t_u, parent_weight, minima, area_tree);
         int min_v = _update_minima(t_v, parent_weight, minima, area_tree);
 
-        bool is_watershed = min_u > 0 && min_v > 0;
-        std::cout << "is_watershed: " << is_watershed << std::endl;
-
         int size_new = size_u + size_v;
         int t_new = area_tree.add_node(t_u, t_v, parent_weight);
 
         minima[t_new] = min_u + min_v;
 
+        bool is_watershed = min_u > 0 && min_v > 0;
+
         if (is_watershed)
         {
             bool merge_exceeds_size = size_new >= max_num_pixels && (size_u < max_num_pixels || size_v < max_num_pixels);
 
-            if (mst_weights[idx] < min_frontier && !merge_exceeds_size) continue;
+            if (mst_weights[idx] < min_frontier && !merge_exceeds_size) {
+                continue;
+            }
 
             for (auto [c, size] : { std::pair{c_u, size_u}, std::pair{c_v, size_v} })
             {
                 if (size < min_num_pixels || size >= max_num_pixels) continue;
 
                 int t_id = c_to_tree_idx[c];
-                std::vector<int> local_component = uf.get_component(c);
-                std::vector<int> component = bimap.apply_forward(local_component);
+
+                // Apply forward mapping directly to the list to avoid intermediate vector allocation
+                const auto& component_list = uf_tracked.get_component_list(c);
+                std::vector<int> component = bimap.apply_forward(component_list);
+
                 segments.push_back(
                     Segment::from_visited(
                         component, depth, height, width,
@@ -286,7 +289,7 @@ int hierarchical_watershed(
         }
 
         // finishing merging the two components
-        int c_new = uf.unite(c_u, c_v);
+        int c_new = uf_tracked.unite(c_u, c_v);
         c_to_tree_idx[c_new] = t_new;
     }
 
@@ -300,8 +303,6 @@ int hierarchical_watershed(
         );
         num_segments++;
     }
-
-    std::cout << "num_segments: " << num_segments << std::endl;
 
     *id_offset_ptr = id_map.next_value();
 
@@ -324,6 +325,7 @@ void compute_connected_components(
     int cur_idx,
     long *id_offset_ptr
 ) {
+
     seen_data[cur_idx] = true;
     std::vector<int> queue = {cur_idx};
     std::vector<int> visited;
@@ -393,7 +395,7 @@ void compute_connected_components(
         }
     }
 
-    int num_segments = hierarchical_watershed(
+    hierarchical_watershed(
         segments, visited, edges, weights,
         min_num_pixels, max_num_pixels, min_frontier,
         depth, height, width, id_offset_ptr
@@ -409,6 +411,7 @@ std::vector<Segment> compute_segmentation_hypotheses(
     int max_num_pixels,
     float min_frontier
 ) {
+
     size_t depth = foreground.shape(0);
     size_t height = foreground.shape(1);
     size_t width = foreground.shape(2);
@@ -449,6 +452,7 @@ std::vector<Segment> compute_segmentation_hypotheses(
 std::unordered_map<long, std::vector<long>> overlap_dict_from_segments(
     const std::vector<Segment> &segments
 ) {
+
     std::unordered_map<long, const Segment *> segment_dict;
     for (const Segment &segment : segments) {
         segment_dict[segment.id] = &segment;
