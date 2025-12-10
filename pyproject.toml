@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-v1 = ["ultrack"]
+compatibility = ["ultrack"]
 
 [project.urls]
 Homepage = "https://github.com/royerlab/ultrack-td"

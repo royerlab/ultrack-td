@@ -12,7 +12,7 @@ try:
     from ultrack.utils import labels_to_contours
 except ImportError as e:
     raise ImportError(
-        "`ultrack` is not installed. Please install it with `pip install ultrack-td[v1]`.\n"
+        "`ultrack` is not installed. Please install it with `pip install ultrack-td[compatibility]`.\n"
         "If this doesn't work follow the instructions at: https://royerlab.github.io/ultrack/install.html"
     ) from e
 
