@@ -1,7 +1,6 @@
 import time
 
 import edt
-import napari
 import numpy as np
 import pytest
 import rustworkx as rx
@@ -108,6 +107,8 @@ def test_multi_hypotheses_overlap(
     _validate_overlap_dict(overlap_dict)
 
     if interactive:
+        import napari
+
         viewer = napari.Viewer()
         viewer.add_image(contour, colormap="magma")
         viewer.add_labels(foreground, opacity=0.5, visible=False)

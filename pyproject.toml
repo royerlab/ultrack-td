@@ -21,6 +21,11 @@ dependencies = [
 
 [project.optional-dependencies]
 compatibility = ["ultrack"]
+test = [
+    "pytest",
+    "rustworkx",
+    "edt",
+]
 
 [project.urls]
 Homepage = "https://github.com/royerlab/ultrack-td"
