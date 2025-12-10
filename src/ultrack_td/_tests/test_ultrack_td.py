@@ -1,4 +1,5 @@
 import time
+import pytest
 import edt
 import napari
 import rustworkx as rx
@@ -42,7 +43,11 @@ def _validate_overlap_dict(overlap_dict: dict[int, list[int]]) -> None:
     assert seen_n_overlaps == expected_n_overlaps
 
 
-def test_multi_hypotheses_overlap(interactive: bool = False) -> None:
+@pytest.mark.parametrize("dtype", [np.float32, np.float64, np.int8, np.int16, np.int32, np.int64, np.uint8, np.uint16, np.uint32, np.uint])
+def test_multi_hypotheses_overlap(
+    dtype: np.dtype,
+    interactive: bool = False,
+) -> None:
     # Generate an initial image with two overlapping circles
     x, y = np.indices((80, 80))
     x1, y1, x2, y2 = 27, 25, 44, 52
@@ -64,6 +69,7 @@ def test_multi_hypotheses_overlap(interactive: bool = False) -> None:
 
     contour = -distance
     contour = contour - contour.min()
+    contour = contour.astype(dtype)
 
     start = time.time()
     components = compute_segmentation_hypotheses(
