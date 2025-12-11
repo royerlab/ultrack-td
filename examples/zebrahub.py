@@ -37,7 +37,7 @@ def main() -> None:
     viewer.dims.set_point(0, start_idx + 5)
 
     image = img_layer.data[0]
-    image = image[start_idx : (start_idx + 1)]  # processing only a subset of time points
+    image = image[start_idx : (start_idx + 10)]  # processing only a subset of time points
     translation = (start_idx, 0, 0, 0)
 
     foreground = create_zarr(image.shape, bool, store_or_path="detection.zarr", overwrite=True)
@@ -49,7 +49,7 @@ def main() -> None:
         voxel_size=voxel_size,
     )
 
-    contours = create_zarr(image.shape, np.float16, store_or_path="boundaries.zarr", overwrite=True)
+    contours = create_zarr(image.shape, np.float32, store_or_path="boundaries.zarr", overwrite=True)
     array_apply(
         image,
         out_array=contours,

@@ -47,6 +47,9 @@ struct Segment {
             mask_data[z * mask_height * mask_width + y * mask_width + x] = true;
         }
 
+        // Acquire GIL before creating ndarrays
+        nb::gil_scoped_acquire acquire;
+
         size_t shape[3] = {mask_depth, mask_height, mask_width};
         nb::capsule mask_owner(mask_data, [](void *p) noexcept {
             delete[] (bool *) p;
