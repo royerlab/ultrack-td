@@ -267,28 +267,30 @@ int hierarchical_watershed(
         {
             bool merge_exceeds_size = size_new >= max_num_pixels && (size_u < max_num_pixels || size_v < max_num_pixels);
 
-            if (mst_weights[idx] < min_frontier && !merge_exceeds_size) {
-                continue;
-            }
-
-            for (auto [c, size] : { std::pair{c_u, size_u}, std::pair{c_v, size_v} })
+            // if merge is allowed, we skip adding children segments
+            // merge must not exceed size constraints to be allowed
+            if (!(mst_weights[idx] < min_frontier && !merge_exceeds_size))
             {
-                if (size < min_num_pixels || size >= max_num_pixels) continue;
+                for (auto [c, size] : { std::pair{c_u, size_u}, std::pair{c_v, size_v} })
+                {
+                    if (size >= min_num_pixels && size < max_num_pixels)
+                    {
+                        int t_id = c_to_tree_idx[c];
 
-                int t_id = c_to_tree_idx[c];
+                        // Apply forward mapping directly to the list to avoid intermediate vector allocation
+                        const auto& component_list = uf_tracked.get_component_list(c);
+                        std::vector<int> component = bimap.apply_forward(component_list);
 
-                // Apply forward mapping directly to the list to avoid intermediate vector allocation
-                const auto& component_list = uf_tracked.get_component_list(c);
-                std::vector<int> component = bimap.apply_forward(component_list);
+                        segments.push_back(
+                            Segment::from_visited(
+                                component, depth, height, width,
+                                id_map.get(t_id), id_map.get(t_new)
+                            )
+                        );
 
-                segments.push_back(
-                    Segment::from_visited(
-                        component, depth, height, width,
-                        id_map.get(t_id), id_map.get(t_new)
-                    )
-                );
-
-                num_segments++;
+                        num_segments++;
+                    }
+                }
             }
         }
 
