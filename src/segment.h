@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <cstring>
 #include <nanobind/ndarray.h>
 #include <nanobind/nanobind.h>
 
