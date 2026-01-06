@@ -1,11 +1,9 @@
-#ifndef UNION_FIND_H
-#define UNION_FIND_H
+#pragma once
 
 #include <vector>
 #include <list>
 #include <numeric>
 #include <algorithm>
-#include <iostream>
 
 /**
  * Tarjan's Union-Find (Disjoint Set Union) data structure
@@ -191,5 +189,3 @@ public:
         }
     }
 };
-
-#endif // UNION_FIND_H
