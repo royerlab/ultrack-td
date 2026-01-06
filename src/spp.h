@@ -58,5 +58,7 @@ std::vector<Segment> combinatorial_hypotheses(
         }
     }
 
+    std::list<std::set<long>> subgraphs = rag.connected_subgraphs(min_num_pixels, max_num_pixels, min_frontier);
+
     return segments;
 }
