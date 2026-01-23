@@ -1,4 +1,4 @@
-# ultrack-td-cpp
+# ultrack-td
 
 High-performance C++ implementation of [ultrack](https://github.com/royerlab/ultrack)'s multi-hypothesis segmentation algorithm, designed for the [tracksdata](https://github.com/royerlab/tracksdata) API.
 
