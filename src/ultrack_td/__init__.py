@@ -2,6 +2,7 @@ from functools import partial
 from typing import Any
 
 import numpy as np
+import polars as pl
 import tracksdata as td
 from numpy.typing import NDArray
 from tracksdata.graph import BaseGraph
@@ -118,11 +119,11 @@ class UltrackMultiHypotheses(BaseNodesOperator):
             The graph to add the segmentation hypotheses to.
         """
         for key in self._default_attr_keys[1:]:  # skipping "bbox"
-            if key not in graph.node_attr_keys:
-                graph.add_node_attr_key(key, -1.0)
+            if key not in graph.node_attr_keys():
+                graph.add_node_attr_key(key, pl.Float32, -1.0)
 
-        if "bbox" not in graph.node_attr_keys:
-            graph.add_node_attr_key("bbox", np.zeros(6, dtype=np.int32))
+        if "bbox" not in graph.node_attr_keys():
+            graph.add_node_attr_key("bbox", pl.Array(pl.Int32, shape=(6,)), np.zeros(6, dtype=np.int32))
 
     @override
     def add_nodes(
