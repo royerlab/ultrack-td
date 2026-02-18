@@ -15,8 +15,8 @@ pip install ultrack-td
 Or from source:
 
 ```bash
-git clone https://github.com/royerlab/ultrack-td-cpp.git
-cd ultrack-td-cpp
+git clone https://github.com/royerlab/ultrack-td.git
+cd ultrack-td
 pip install .
 ```
 

@@ -42,7 +42,7 @@ build-dir = "build/{wheel_tag}"
 build-verbosity = 1
 
 # Run pytest to ensure that the package was correctly built
-test-command = "pytest {project}/_tests"
+test-command = "pytest {project}/src/ultrack_td/_tests"
 test-requires = "pytest"
 
 # Don't test Python 3.8 wheels on macOS/arm64

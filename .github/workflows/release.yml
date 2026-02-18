@@ -98,7 +98,7 @@ jobs:
     needs: [build_wheels, build_sdist, test_install]
     runs-on: ubuntu-latest
     # Only run on main repo and not for test releases
-    if: github.repository == 'royerlab/ultrack-td-cpp' && github.event.inputs.test_release != 'true'
+    if: github.repository == 'royerlab/ultrack-td' && github.event.inputs.test_release != 'true'
     environment:
       name: pypi
       url: https://pypi.org/p/ultrack-td
@@ -120,7 +120,7 @@ jobs:
     needs: [build_wheels, build_sdist, test_install]
     runs-on: ubuntu-latest
     # Only run for test releases or on forks
-    if: github.event.inputs.test_release == 'true' || github.repository != 'royerlab/ultrack-td-cpp'
+    if: github.event.inputs.test_release == 'true' || github.repository != 'royerlab/ultrack-td'
 
     steps:
     - uses: actions/download-artifact@v7
@@ -140,7 +140,7 @@ jobs:
     needs: [build_wheels, build_sdist, test_install]
     runs-on: ubuntu-latest
     # Only create GitHub releases on main repo and not for test releases
-    if: github.repository == 'royerlab/ultrack-td-cpp' && github.event.inputs.test_release != 'true'
+    if: github.repository == 'royerlab/ultrack-td' && github.event.inputs.test_release != 'true'
 
     steps:
     - uses: actions/checkout@v6
