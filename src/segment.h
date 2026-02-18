@@ -71,7 +71,7 @@ struct Segment {
         return Segment{
             .mask = mask,
             .bbox = bbox,
-            .num_pixels = num_pixels,
+            .num_pixels = static_cast<int>(num_pixels),
             .z = avg_z,
             .y = avg_y,
             .x = avg_x,

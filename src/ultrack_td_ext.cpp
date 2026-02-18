@@ -10,7 +10,15 @@ using namespace nb::literals;
 
 NB_MODULE(ultrack_td_ext, m) {
     nb::class_<Segment>(m, "Segment")
-    .def(nb::init<nb::ndarray<nb::numpy, bool>, nb::ndarray<nb::numpy, int>, int, int, int>())
+    .def(nb::init<nb::ndarray<nb::numpy, bool>, // mask
+                  nb::ndarray<nb::numpy, int>,  // bbox
+                  int,   // num_pixels
+                  float, // z
+                  float, // y
+                  float, // x
+                  long,  // id
+                  long   // parent_id
+                  >())
     .def_prop_ro("mask", [](const Segment &s) -> nb::ndarray<nb::numpy, bool> { return s.mask; }, nb::rv_policy::reference)
     .def_prop_ro("bbox", [](const Segment &s) -> nb::ndarray<nb::numpy, int> { return s.bbox; }, nb::rv_policy::reference)
     .def_ro("num_pixels", &Segment::num_pixels)
