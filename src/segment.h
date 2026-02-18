@@ -13,9 +13,9 @@ struct Segment {
     nb::ndarray<nb::numpy, bool> mask;
     nb::ndarray<nb::numpy, int> bbox;
     int num_pixels;
-    int z;
-    int y;
-    int x;
+    float z;
+    float y;
+    float x;
     long id;
     long parent_id;
 
@@ -29,15 +29,27 @@ struct Segment {
         size_t mask_depth = max_z - min_z + 1;
         size_t mask_height = max_y - min_y + 1;
         size_t mask_width = max_x - min_x + 1;
+        size_t yx_size = height * width;
+        float avg_z = 0.0f;
+        float avg_y = 0.0f;
+        float avg_x = 0.0f;
 
         bool *mask_data = new bool[mask_depth * mask_height * mask_width];
         std::memset(mask_data, 0, mask_depth * mask_height * mask_width * sizeof(bool));
         for (int idx : visited) {
-            int z = idx / (height * width) - min_z;
-            int y = (idx % (height * width)) / width - min_y;
+            int z = idx / yx_size - min_z;
+            int y = (idx % yx_size) / width - min_y;
             int x = idx % width - min_x;
             mask_data[z * mask_height * mask_width + y * mask_width + x] = true;
+            avg_z += z;
+            avg_y += y;
+            avg_x += x;
         }
+
+        size_t num_pixels = visited.size();
+        avg_z /= num_pixels;
+        avg_y /= num_pixels;
+        avg_x /= num_pixels;
 
         // Acquire GIL before creating ndarrays
         nb::gil_scoped_acquire acquire;
@@ -58,10 +70,10 @@ struct Segment {
         return Segment{
             .mask = mask,
             .bbox = bbox,
-            .num_pixels = static_cast<int>(visited.size()),
-            .z = min_z,
-            .y = min_y,
-            .x = min_x,
+            .num_pixels = num_pixels,
+            .z = avg_z,
+            .y = avg_y,
+            .x = avg_x,
             .id = id,
             .parent_id = parent_id,
         };
@@ -72,6 +84,7 @@ struct Segment {
         int depth, int height, int width,
         long id = -1, long parent_id = -1
     ) {
+        size_t yx_size = height * width;
         int min_z = depth - 1;
         int min_y = height - 1;
         int min_x = width - 1;
@@ -79,8 +92,8 @@ struct Segment {
         int max_y = 0;
         int max_x = 0;
         for (int idx : visited) {
-            int z = idx / (height * width);
-            int y = (idx % (height * width)) / width;
+            int z = idx / yx_size;
+            int y = (idx % yx_size) / width;
             int x = idx % width;
             min_z = std::min(min_z, z);
             min_y = std::min(min_y, y);
