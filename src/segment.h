@@ -29,6 +29,7 @@ struct Segment {
         size_t mask_depth = max_z - min_z + 1;
         size_t mask_height = max_y - min_y + 1;
         size_t mask_width = max_x - min_x + 1;
+        size_t mask_yx_size = mask_height * mask_width;
         size_t yx_size = height * width;
         float avg_z = 0.0f;
         float avg_y = 0.0f;
@@ -37,10 +38,10 @@ struct Segment {
         bool *mask_data = new bool[mask_depth * mask_height * mask_width];
         std::memset(mask_data, 0, mask_depth * mask_height * mask_width * sizeof(bool));
         for (int idx : visited) {
-            int z = idx / yx_size - min_z;
-            int y = (idx % yx_size) / width - min_y;
-            int x = idx % width - min_x;
-            mask_data[z * mask_height * mask_width + y * mask_width + x] = true;
+            int z = idx / yx_size;
+            int y = (idx % yx_size) / width;
+            int x = idx % width;
+            mask_data[(z - min_z) * mask_yx_size + (y - min_y) * mask_width + (x - min_x)] = true;
             avg_z += z;
             avg_y += y;
             avg_x += x;
