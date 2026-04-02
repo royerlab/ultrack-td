@@ -96,7 +96,15 @@ def compute_segmentation_hypotheses(
 
 
 class UltrackMultiHypotheses(BaseNodesOperator):
-    _default_attr_keys = ("bbox", "z", "y", "x", "num_pixels")
+    # must be kept in this order because methods below rely on it
+    _default_attr_keys = (
+        td.DEFAULT_ATTR_KEYS.MASK,
+        td.DEFAULT_ATTR_KEYS.BBOX,
+        td.DEFAULT_ATTR_KEYS.Z,
+        td.DEFAULT_ATTR_KEYS.Y,
+        td.DEFAULT_ATTR_KEYS.X,
+        "num_pixels",
+    )
 
     def __init__(
         self,
@@ -118,12 +126,18 @@ class UltrackMultiHypotheses(BaseNodesOperator):
         graph : BaseGraph
             The graph to add the segmentation hypotheses to.
         """
-        for key in self._default_attr_keys[1:]:  # skipping "bbox"
-            if key not in graph.node_attr_keys():
+        existing_keys = graph.node_attr_keys()
+        for key in self._default_attr_keys[2:]:
+            if key not in existing_keys:
                 graph.add_node_attr_key(key, pl.Float32, -1.0)
 
-        if "bbox" not in graph.node_attr_keys():
-            graph.add_node_attr_key("bbox", pl.Array(pl.Int32, shape=(6,)), np.zeros(6, dtype=np.int32))
+        if td.DEFAULT_ATTR_KEYS.BBOX not in existing_keys:
+            graph.add_node_attr_key(
+                td.DEFAULT_ATTR_KEYS.BBOX, pl.Array(pl.Int32, shape=(6,)), np.zeros(6, dtype=np.int32)
+            )
+
+        if td.DEFAULT_ATTR_KEYS.MASK not in existing_keys:
+            graph.add_node_attr_key(td.DEFAULT_ATTR_KEYS.MASK, pl.Object, None)
 
     @override
     def add_nodes(
@@ -222,7 +236,7 @@ class UltrackMultiHypotheses(BaseNodesOperator):
         LOG.info("Found %d hypotheses for time point %d", len(hypotheses), t)
 
         for segm in hypotheses:
-            attrs = {key: getattr(segm, key) for key in self._default_attr_keys}
+            attrs = {key: getattr(segm, key) for key in self._default_attr_keys[1:]}
             attrs["tmp_id"] = segm.id
             attrs[td.DEFAULT_ATTR_KEYS.T] = t
             attrs[td.DEFAULT_ATTR_KEYS.MASK] = Mask(segm.mask, segm.bbox)
