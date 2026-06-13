@@ -41,13 +41,10 @@ std::vector<Segment> combinatorial_hypotheses(
                         long nz = z + offsets[i * 3];
                         long ny = y + offsets[i * 3 + 1];
                         long nx = x + offsets[i * 3 + 2];
-                        if (nz >= 0 && nz < depth &&
-                            ny >= 0 && ny < height &&
-                            nx >= 0 && nx < width)
+                        if (nz < depth && ny < height && nx < width)
                         {
                             long nidx = nz * height * width + ny * width + nx;
-                            if (spp_data[nidx] && spp_data[idx] != spp_data[nidx])
-                            {
+                            if (spp_data[nidx] && spp_data[idx] != spp_data[nidx]) {
                                 float weight = 0.5f * (contours_data[idx] + contours_data[nidx]);
                                 rag.add_edge(idx, nidx, weight);
                             }
@@ -59,6 +56,8 @@ std::vector<Segment> combinatorial_hypotheses(
     }
 
     std::list<std::set<long>> subgraphs = rag.connected_subgraphs(min_num_pixels, max_num_pixels, min_frontier);
+
+    // TODO build segments from subgraph and compute overlaps
 
     return segments;
 }
