@@ -4,12 +4,12 @@ High-performance C++ implementation of [ultrack](https://github.com/royerlab/ult
 
 ## Overview
 
-A C++ rewrite of ultrack's core segmentation algorithm providing an magnetude speedup while maintaining compatibility with both tracksdata and ultrack APIs. Implements multi-hypothesis segmentation with hierarchical watershed for robust cell segmentation in microscopy imaging.
+A C++ rewrite of ultrack's core segmentation algorithm. It keeps compatibility with the tracksdata and ultrack APIs and implements multi-hypothesis segmentation with hierarchical watershed for cell segmentation in microscopy images.
 
 ## Installation
 
 ```bash
-pip install ultrack-td
+pip install git+https://github.com/royerlab/ultrack-td.git
 ```
 
 Or from source:
@@ -31,39 +31,44 @@ import tracksdata as td
 from ultrack_td import UltrackMultiHypotheses
 
 # Initialize graph and segmenter
-graph = td.graph.InMemoryGraph()
+graph = td.graph.RustWorkXGraph()
 segmenter = UltrackMultiHypotheses(
-    min_area=100,
-    max_area=10000,
+    min_num_pixels=100,
+    max_num_pixels=10_000,
 )
 
 # Add segmentation nodes
 segmenter.add_nodes(
     graph=graph,
-    foreground=foreground,  # binary mask (T, Z, Y, X)
-    detection=contours      # float boundary map
+    foreground=foreground,  # bool array with shape (T, (Z), Y, X)
+    contours=contours,      # boundary map with the same shape
 )
 
 # Link and solve
-td.edges.DistanceEdges(max_distance=50).add_edges(graph)
-td.solvers.NearestNeighborsSolver().solve(graph)
+td.edges.DistanceEdges(
+    distance_threshold=50,
+    n_neighbors=3,
+).add_edges(graph)
+td.solvers.NearestNeighborsSolver(edge_weight="distance").solve(graph)
 ```
 
 ### ultrack v1 API (Compatibility Mode)
 
 ```python
-from ultrack_td.v1 import track
+import tracksdata as td
 from ultrack.config import MainConfig
+from ultrack_td.v1 import track
 
+graph = td.graph.RustWorkXGraph()
 config = MainConfig()
 config.segmentation_config.min_area = 100
-config.segmentation_config.max_area = 10000
+config.segmentation_config.max_area = 10_000
 
 track(
     graph=graph,
     config=config,
     foreground=foreground,
-    contours=contours
+    contours=contours,
 )
 ```
 
@@ -112,15 +117,27 @@ For full ultrack functionality, use the tracksdata API directly:
 import tracksdata as td
 from ultrack_td import UltrackMultiHypotheses
 
+graph = td.graph.RustWorkXGraph()
+
 # 1. Segmentation (this library)
-segmenter = UltrackMultiHypotheses(...)
-segmenter.add_nodes(graph, foreground, detection)
+segmenter = UltrackMultiHypotheses(
+    min_num_pixels=100,
+    max_num_pixels=10_000,
+)
+segmenter.add_nodes(
+    graph=graph,
+    foreground=foreground,
+    contours=contours,
+)
 
 # 2. Add custom features manually
 # your_custom_feature_extraction(graph)
 
 # 3. Linking (tracksdata)
-td.edges.DistanceEdges(...).add_edges(graph)
+td.edges.DistanceEdges(
+    distance_threshold=50,
+    n_neighbors=3,
+).add_edges(graph)
 
 # 4. Custom edge attributes (tracksdata)
 # your_custom_edge_attrs(graph)
